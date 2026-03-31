@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getStoredToken } from '../utils/authClient.js'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+if (!API_BASE_URL) {
+  console.warn('VITE_API_URL is not set')
+}
 
 const PLANS = [
   {
@@ -63,9 +66,6 @@ export default function Pricing() {
     setCheckoutError(null)
     setLoadingId(planId)
     try {
-      if (!API_BASE_URL) {
-        throw new Error('Missing API base URL')
-      }
       const res = await fetch(`${API_BASE_URL}/api/billing/create-checkout-session`, {
         method: 'POST',
         headers: {

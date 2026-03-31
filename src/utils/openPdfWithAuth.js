@@ -1,6 +1,9 @@
 import { getStoredToken } from './authClient.js'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+if (!API_BASE_URL) {
+  console.warn('VITE_API_URL is not set')
+}
 
 /**
  * GET PDF with Bearer token and open in a new tab.

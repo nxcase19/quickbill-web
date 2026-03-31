@@ -4,7 +4,10 @@ import { useBilling } from '../context/BillingContext.jsx'
 import { persistAccountFromAuth } from '../utils/planClient.js'
 
 const PAID = new Set(['basic', 'pro', 'business'])
-const API_BASE_URL = import.meta.env.VITE_API_URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+if (!API_BASE_URL) {
+  console.warn('VITE_API_URL is not set')
+}
 
 export default function BillingSuccess() {
   const navigate = useNavigate()
@@ -22,7 +25,7 @@ export default function BillingSuccess() {
       try {
         await refreshPlan()
         const t = localStorage.getItem('token')
-        if (t && API_BASE_URL) {
+        if (t) {
           const meRes = await fetch(`${API_BASE_URL}/api/auth/me?_t=${Date.now()}`, {
             headers: { Authorization: `Bearer ${t}`, 'Cache-Control': 'no-store' },
             cache: 'no-store',
@@ -47,9 +50,6 @@ export default function BillingSuccess() {
         return
       }
       try {
-        if (!API_BASE_URL) {
-          throw new Error('Missing API base URL')
-        }
         const res = await fetch(`${API_BASE_URL}/api/billing/plan?_t=${Date.now()}`, {
           headers: { Authorization: `Bearer ${t}`, 'Cache-Control': 'no-store' },
           cache: 'no-store',
