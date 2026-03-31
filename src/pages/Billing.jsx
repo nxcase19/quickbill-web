@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import axios from '../utils/axios'
+import { getStoredToken } from '../utils/authClient.js'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+if (!API_BASE_URL) {
+  console.warn('VITE_API_URL is not set')
+}
 
 const PAID = new Set(['basic', 'pro', 'business'])
 
@@ -35,11 +40,30 @@ export default function Billing() {
     setLoading(true)
     setLoadError(null)
     try {
-      const res = await axios.get('/api/billing/plan')
-      const mapped = mapBillingPlanPayload(res.data)
+      const token = getStoredToken()
+      if (!token) {
+        throw new Error('Missing auth token')
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/billing/plan`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-store',
+        },
+        credentials: 'include',
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(text || `Request failed (${res.status})`)
+      }
+
+      const body = await res.json().catch(() => null)
+      const mapped = mapBillingPlanPayload(body)
       setData(mapped)
     } catch (err) {
-      console.error(err)
+      console.error('BILLING ERROR:', err)
       setLoadError(err?.message || 'โหลดข้อมูลไม่สำเร็จ')
       setData(null)
     } finally {
@@ -51,12 +75,30 @@ export default function Billing() {
     if (!confirm('ยืนยันยกเลิกแพ็กเกจ?')) return
 
     try {
-      await axios.post('/api/billing/cancel-subscription')
+      const token = getStoredToken()
+      if (!token) {
+        throw new Error('Missing auth token')
+      }
+
+      const res = await fetch(`${API_BASE_URL}/api/billing/cancel-subscription`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(text || `Request failed (${res.status})`)
+      }
+
       setLoading(true)
       await fetchPlan()
     } catch (err) {
-      console.error(err)
-      alert('ยกเลิกไม่สำเร็จ')
+      console.error('BILLING ERROR:', err)
+      alert(err?.message || 'ยกเลิกไม่สำเร็จ')
     } finally {
       setLoading(false)
     }

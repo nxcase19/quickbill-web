@@ -72,17 +72,25 @@ export default function Pricing() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ plan_type: planId }),
       })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(text || `ไม่สามารถเปิดหน้าชำระเงินได้ (${res.status})`)
+      }
+
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || !data?.success || typeof data.url !== 'string') {
+      if (!data?.success || typeof data.url !== 'string') {
         const msg =
           (typeof data?.error === 'string' && data.error) ||
-          `ไม่สามารถเปิดหน้าชำระเงินได้ (${res.status})`
+          'ไม่สามารถเปิดหน้าชำระเงินได้'
         throw new Error(msg)
       }
       window.location.href = data.url
     } catch (e) {
+      console.error('BILLING ERROR:', e)
       const msg = e instanceof Error ? e.message : 'เกิดข้อผิดพลาด'
       setCheckoutError(msg)
       window.alert(msg)
