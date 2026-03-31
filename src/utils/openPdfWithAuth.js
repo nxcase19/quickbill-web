@@ -60,7 +60,19 @@ export async function openPdfInNewTab(path) {
 
     const blob = await res.blob()
     const url = window.URL.createObjectURL(blob)
-    window.open(url, '_blank')
+
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'document.pdf'
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+
+    // Best-effort cleanup; some mobile browsers may ignore this.
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url)
+    }, 1000)
   } catch (err) {
     console.error(err)
     alert('โหลด PDF ไม่สำเร็จ')
