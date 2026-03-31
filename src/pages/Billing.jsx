@@ -45,6 +45,8 @@ export default function Billing() {
         throw new Error('Missing auth token')
       }
 
+      console.log('TOKEN:', token)
+
       const res = await fetch(`${API_BASE_URL}/api/billing/plan`, {
         method: 'GET',
         headers: {
@@ -79,6 +81,8 @@ export default function Billing() {
       if (!token) {
         throw new Error('Missing auth token')
       }
+
+      console.log('TOKEN:', token)
 
       const res = await fetch(`${API_BASE_URL}/api/billing/cancel-subscription`, {
         method: 'POST',

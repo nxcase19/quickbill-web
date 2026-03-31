@@ -63,6 +63,7 @@ export default function Pricing() {
       window.alert('กรุณาเข้าสู่ระบบก่อนชำระเงิน')
       return
     }
+    console.log('TOKEN:', token)
     setCheckoutError(null)
     setLoadingId(planId)
     try {
