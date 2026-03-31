@@ -1,5 +1,7 @@
 import { getStoredToken } from './authClient.js'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL
+
 /**
  * GET PDF with Bearer token and open in a new tab.
  * Handles JSON error bodies and non-PDF responses without crashing the page.
@@ -11,8 +13,13 @@ export async function openPdfInNewTab(path) {
     alert('กรุณาเข้าสู่ระบบใหม่')
     return
   }
+  const target =
+    typeof path === 'string' && path.startsWith('/api/')
+      ? `${API_BASE_URL || ''}${path}`
+      : path
+
   try {
-    const res = await fetch(path, {
+    const res = await fetch(target, {
       headers: { Authorization: `Bearer ${token}` },
     })
 

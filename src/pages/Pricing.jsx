@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getStoredToken } from '../utils/authClient.js'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL
+
 const PLANS = [
   {
     id: 'free',
@@ -61,7 +63,10 @@ export default function Pricing() {
     setCheckoutError(null)
     setLoadingId(planId)
     try {
-      const res = await fetch('/api/billing/create-checkout-session', {
+      if (!API_BASE_URL) {
+        throw new Error('Missing API base URL')
+      }
+      const res = await fetch(`${API_BASE_URL}/api/billing/create-checkout-session`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

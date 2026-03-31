@@ -96,6 +96,7 @@ export default function PurchaseOrders() {
   const [newSupplierPhone, setNewSupplierPhone] = useState('')
   const [newSupplierTaxId, setNewSupplierTaxId] = useState('')
   const [supplierSubmitting, setSupplierSubmitting] = useState(false)
+  const API_BASE_URL = import.meta.env.VITE_API_URL
 
   useEffect(() => {
     if (!toast) return
@@ -308,7 +309,10 @@ export default function PurchaseOrders() {
         alert('กรุณาเข้าสู่ระบบใหม่')
         return
       }
-      const res = await fetch(`/api/po/${id}/receive`, {
+      if (!API_BASE_URL) {
+        throw new Error('Missing API base URL')
+      }
+      const res = await fetch(`${API_BASE_URL}/api/po/${id}/receive`, {
         method: 'PUT',
         headers,
       })
@@ -360,7 +364,10 @@ export default function PurchaseOrders() {
         alert('กรุณาเข้าสู่ระบบใหม่')
         return
       }
-      const res = await fetch(`/api/po/${id}/pay`, {
+      if (!API_BASE_URL) {
+        throw new Error('Missing API base URL')
+      }
+      const res = await fetch(`${API_BASE_URL}/api/po/${id}/pay`, {
         method: 'PUT',
         headers,
       })
