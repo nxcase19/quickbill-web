@@ -61,13 +61,23 @@ export async function openPdfInNewTab(path) {
     const blob = await res.blob()
     const url = window.URL.createObjectURL(blob)
 
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'document.pdf'
-    a.rel = 'noopener'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
+    const isIOS =
+      typeof navigator !== 'undefined' &&
+      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
+      !window.MSStream
+
+    if (isIOS) {
+      // iOS Safari/Chrome: open in current tab to let the browser handle the PDF viewer.
+      window.location.href = url
+    } else {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'document.pdf'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    }
 
     // Best-effort cleanup; some mobile browsers may ignore this.
     setTimeout(() => {
