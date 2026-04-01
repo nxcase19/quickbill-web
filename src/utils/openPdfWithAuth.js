@@ -147,3 +147,12 @@ export async function sharePdf(path) {
     alert(err?.message || 'แชร์เอกสารไม่สำเร็จ')
   }
 }
+
+/**
+ * Backwards-compatible helper name for existing callers.
+ * Now behaves as "preview first" instead of auto-download.
+ * @param {string} path
+ */
+export async function openPdfInNewTab(path) {
+  await previewPdf(path)
+}
