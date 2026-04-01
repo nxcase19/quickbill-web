@@ -6,7 +6,7 @@ if (!API_BASE_URL) {
 }
 
 /**
- * GET PDF with Bearer token and open in a new tab.
+ * Download PDF with Bearer token and trigger a file download.
  * Handles JSON error bodies and non-PDF responses without crashing the page.
  * @param {string} path Absolute or same-origin path, e.g. `/api/documents/${id}/pdf`
  */
@@ -61,23 +61,13 @@ export async function openPdfInNewTab(path) {
     const blob = await res.blob()
     const url = window.URL.createObjectURL(blob)
 
-    const isIOS =
-      typeof navigator !== 'undefined' &&
-      /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-      !window.MSStream
-
-    if (isIOS) {
-      // iOS Safari/Chrome: open in current tab to let the browser handle the PDF viewer.
-      window.location.href = url
-    } else {
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'document.pdf'
-      a.rel = 'noopener'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-    }
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'document.pdf'
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
 
     // Best-effort cleanup; some mobile browsers may ignore this.
     setTimeout(() => {
