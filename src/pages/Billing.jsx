@@ -62,7 +62,11 @@ export default function Billing() {
       }
 
       const body = await res.json().catch(() => null)
-      const mapped = mapBillingPlanPayload(body)
+      const payload =
+        body && typeof body === 'object' && body.data && typeof body.data === 'object'
+          ? body.data
+          : body
+      const mapped = mapBillingPlanPayload(payload)
       setData(mapped)
     } catch (err) {
       console.error('BILLING ERROR:', err)
