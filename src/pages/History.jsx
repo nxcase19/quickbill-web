@@ -120,13 +120,9 @@ export default function History() {
 
   const handleOpenPdf = (doc) => {
     const token = localStorage.getItem('token')
-    if (!token || String(token).trim() === '') {
-      alert('กรุณาเข้าสู่ระบบใหม่')
-      return
-    }
     const API_URL = import.meta.env.VITE_API_URL || ''
-    const id = encodeURIComponent(doc.id)
-    const url = `${API_URL}/api/documents/${id}/pdf?token=${encodeURIComponent(String(token).trim())}`
+    const id = doc.id
+    const url = `${API_URL}/api/documents/${id}/pdf?token=${token}`
     window.open(url, '_blank')
   }
 
