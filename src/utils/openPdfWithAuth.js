@@ -63,7 +63,8 @@ export async function previewPdf(path) {
   try {
     const blob = await fetchPdfBlob(target, token)
     const fileURL = window.URL.createObjectURL(blob)
-    window.location.href = fileURL
+    window.open(fileURL, '_blank')
+    setTimeout(() => window.URL.revokeObjectURL(fileURL), 60_000)
   } catch (err) {
     console.error(err)
     alert(err?.message || 'โหลด PDF ไม่สำเร็จ')
