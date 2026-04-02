@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api.js'
-import { openPdfInNewTab } from '../utils/openPdfWithAuth.js'
 
 const groupByOrder = (docs) => {
   const map = {}
@@ -120,7 +119,15 @@ export default function History() {
   }
 
   const handleOpenPdf = (doc) => {
-    openPdfInNewTab(`/api/documents/${encodeURIComponent(doc.id)}/pdf`)
+    const token = localStorage.getItem('token')
+    if (!token || String(token).trim() === '') {
+      alert('กรุณาเข้าสู่ระบบใหม่')
+      return
+    }
+    const API_URL = import.meta.env.VITE_API_URL || ''
+    const id = encodeURIComponent(doc.id)
+    const url = `${API_URL}/api/documents/${id}/pdf?token=${encodeURIComponent(String(token).trim())}`
+    window.open(url, '_blank')
   }
 
   return (
