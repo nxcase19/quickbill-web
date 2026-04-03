@@ -62,7 +62,9 @@ api.interceptors.response.use(
 
     if (res?.status === 401) {
       const isAuthAttempt =
-        reqUrl.includes('/api/auth/login') || reqUrl.includes('/api/auth/register')
+        reqUrl.includes('/api/auth/login') ||
+        reqUrl.includes('/api/auth/register') ||
+        reqUrl.includes('/api/auth/google')
       if (!isAuthAttempt) {
         clearStoredAuth()
         if (
