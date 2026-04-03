@@ -90,6 +90,16 @@ function getVatExportDateRange(period, from, to) {
   return { from: first, to: last }
 }
 
+function getUsageStatus(used, limit) {
+  if (!limit) return 'pro'
+
+  const ratio = used / limit
+
+  if (used >= limit) return 'full'
+  if (ratio >= 0.8) return 'warning'
+  return 'normal'
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { plan: billingPlanApi, billingFeatureEnabled, openUpgrade, refreshPlan } = useBilling()
@@ -254,18 +264,68 @@ export default function Dashboard() {
       {usage && (
         <div
           style={{
-            background: '#f8fafc',
-            padding: '12px',
-            borderRadius: '10px',
+            padding: '14px',
+            borderRadius: '12px',
             marginBottom: '16px',
+            background:
+              getUsageStatus(usage.today.used, usage.today.limit) === 'full'
+                ? '#fee2e2'
+                : getUsageStatus(usage.today.used, usage.today.limit) === 'warning'
+                  ? '#fef3c7'
+                  : '#f1f5f9',
+            border:
+              getUsageStatus(usage.today.used, usage.today.limit) === 'full'
+                ? '1px solid #ef4444'
+                : getUsageStatus(usage.today.used, usage.today.limit) === 'warning'
+                  ? '1px solid #f59e0b'
+                  : '1px solid #e2e8f0',
           }}
         >
-          <div>
+          <div style={{ fontWeight: 600 }}>
             วันนี้: {usage.today.used} / {usage.today.limit ?? '∞'} บิล
           </div>
-          <div>
+
+          <div style={{ marginBottom: '8px' }}>
             เดือนนี้: {usage.month.used} / {usage.month.limit ?? '∞'} บิล
           </div>
+
+          {getUsageStatus(usage.today.used, usage.today.limit) === 'warning' && (
+            <div style={{ color: '#b45309', fontSize: '13px' }}>
+              ⚠️ คุณกำลังใกล้ถึงขีดจำกัดแล้ว
+            </div>
+          )}
+
+          {getUsageStatus(usage.today.used, usage.today.limit) === 'full' && (
+            <div style={{ marginTop: '10px' }}>
+              <div
+                style={{
+                  color: '#b91c1c',
+                  fontSize: '13px',
+                  marginBottom: '8px',
+                }}
+              >
+                ❌ คุณใช้ครบแล้ว อัปเกรดเพื่อใช้งานต่อ
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = '/billing'
+                }}
+                style={{
+                  background: '#2563eb',
+                  color: 'white',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                อัปเกรด PRO 🚀
+              </button>
+            </div>
+          )}
         </div>
       )}
 
