@@ -27,6 +27,9 @@ export default function PP30() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  const { billingFeatureEnabled, openUpgrade } = useBilling()
+  const canExport = billingFeatureEnabled('export')
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {

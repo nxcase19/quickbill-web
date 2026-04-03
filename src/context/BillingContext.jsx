@@ -8,6 +8,10 @@ import {
   fetchBillingPlan,
   canUseFeature,
 } from '../utils/planClient.js'
+import {
+  BILLING_GATED_FEATURE_KEYS,
+  hasFullProFeatureAccess,
+} from '../utils/planAccess.js'
 
 const BillingContext = createContext(null)
 
@@ -102,6 +106,13 @@ export function BillingProvider({ children }) {
       openUpgrade,
       /** @param {'export'|'purchase_orders'|'tax_purchase'} key */
       billingFeatureEnabled: (key) => {
+        if (
+          billingPlanData &&
+          BILLING_GATED_FEATURE_KEYS.has(key) &&
+          hasFullProFeatureAccess(billingPlanData)
+        ) {
+          return true
+        }
         if (billingPlanData?.features && typeof billingPlanData.features[key] === 'boolean') {
           return billingPlanData.features[key] === true
         }

@@ -3,6 +3,7 @@ import api from '../services/api.js'
 import { dispatchUpgradeModal } from '../components/UpgradeModal.jsx'
 import { useBilling } from '../context/BillingContext.jsx'
 import { getCurrentPlan } from '../utils/planClient.js'
+import { hasFullProFeatureAccess } from '../utils/planAccess.js'
 
 function todayDocDate() {
   return new Date().toISOString().slice(0, 10)
@@ -37,10 +38,7 @@ export default function CreateDocument() {
 
   const { plan } = useBilling()
   const planSnap = plan ?? getCurrentPlan()
-  const showFreeWatermarkNote =
-    planSnap &&
-    !planSnap.trialActive &&
-    String(planSnap.effectivePlan || 'free').toLowerCase() === 'free'
+  const showFreeWatermarkNote = planSnap && !hasFullProFeatureAccess(planSnap)
 
   useEffect(() => {
     if (!items || items.length === 0) {

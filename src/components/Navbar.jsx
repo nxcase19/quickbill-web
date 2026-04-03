@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useBilling } from '../context/BillingContext.jsx'
 import { clearStoredAuth, getStoredToken } from '../utils/authClient.js'
 import { clearBillingPlanCache, showPricingUpgradeCta } from '../utils/planClient.js'
+import { hasFullProFeatureAccess } from '../utils/planAccess.js'
 
 const navLinks = [
   { to: '/dashboard', label: 'แดชบอร์ด' },
@@ -24,12 +25,9 @@ function ProBadge() {
 }
 
 function NavEntry({ to, label, feature, onCloseMenu, variant }) {
-  const { billingFeatureEnabled, openUpgrade, effectivePlan, trialActive } = useBilling()
-  const plan = String(effectivePlan ?? 'free').toLowerCase()
-  const isPaid = plan === 'pro' || plan === 'basic'
-  const isTrial = plan === 'trial' || trialActive === true
-  const locked =
-    feature != null && !isPaid && !isTrial && !billingFeatureEnabled(feature)
+  const { openUpgrade, plan, effectivePlan, planType, trialActive } = useBilling()
+  const snap = plan ?? { effectivePlan, planType, trialActive }
+  const locked = feature != null && !hasFullProFeatureAccess(snap)
   const base =
     variant === 'mobile'
       ? 'min-h-11 w-full rounded-lg px-4 py-3 text-left text-base font-medium transition'

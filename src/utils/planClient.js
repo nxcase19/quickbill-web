@@ -1,5 +1,9 @@
 import api from '../services/api.js'
-import { getPlanAccess } from './planAccess.js'
+import {
+  BILLING_GATED_FEATURE_KEYS,
+  getPlanAccess,
+  hasFullProFeatureAccess,
+} from './planAccess.js'
 
 const LS_BILLING_PLAN = 'quickbill_billing_plan_v1'
 const LS_ACCOUNT = 'quickbill_account_v1'
@@ -251,6 +255,9 @@ export function setBillingPlanCache(plan) {
  */
 export function canUseFeature(feature) {
   const p = getCurrentPlan()
+  if (p && BILLING_GATED_FEATURE_KEYS.has(feature) && hasFullProFeatureAccess(p)) {
+    return true
+  }
   if (p?.features && typeof p.features[feature] === 'boolean') {
     return p.features[feature] === true
   }
@@ -292,10 +299,7 @@ export function isBusinessPlan() {
 export function showPricingUpgradeCta(planSnapshot) {
   const p = planSnapshot ?? getCurrentPlan()
   if (!p) return true
-  const e = String(p.effectivePlan || 'free').toLowerCase()
-  if (e === 'trial') return false
-  if (p.trialActive) return false
-  return e !== 'pro' && e !== 'business'
+  return !hasFullProFeatureAccess(p)
 }
 
 /** @param {'export'|'purchase_orders'|'tax_purchase'} key */

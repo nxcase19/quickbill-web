@@ -4,7 +4,7 @@ import api from '../services/api.js'
 import { useBilling } from '../context/BillingContext.jsx'
 import { downloadBlobFromApiResponse } from '../utils/exportDownload.js'
 import { FREE_DOCS_PER_DAY, FREE_DOCS_PER_MONTH } from '../utils/planClient.js'
-import { getPlanAccess } from '../utils/planAccess.js'
+import { getPlanAccess, hasFullProFeatureAccess } from '../utils/planAccess.js'
 
 /** Same union as server planService.getEffectivePlan — from GET /api/billing/plan (effectivePlan). */
 const EFFECTIVE_PLAN_KEYS = new Set(['free', 'trial', 'basic', 'pro', 'business'])
@@ -109,12 +109,17 @@ export default function Dashboard() {
   const [to, setTo] = useState('')
 
   const effectivePlan = normalizeEffectivePlanFromApi(billingPlanApi)
-  const access = getPlanAccess(effectivePlan)
+  const accessPlan =
+    billingPlanApi && hasFullProFeatureAccess(billingPlanApi) ? 'pro' : effectivePlan
+  const access = getPlanAccess(accessPlan)
   const canExport = access.canExport
   const canTaxPurchaseExport = access.canExport && access.canUseAdvancedTax
 
   const planLabel = effectivePlan
-  const isFreePlan = access.isFree
+  const isFreePlan =
+    billingPlanApi != null &&
+    !hasFullProFeatureAccess(billingPlanApi) &&
+    getPlanAccess(effectivePlan).isFree
   const planBadgeText = dashboardPlanBadgeText(effectivePlan)
   const showFreePlanUi = billingPlanApi != null && isFreePlan
 
