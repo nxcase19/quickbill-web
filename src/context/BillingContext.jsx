@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import LimitModal from '../components/LimitModal.jsx'
 import UpgradeModal, { UPGRADE_MODAL_EVENT } from '../components/UpgradeModal.jsx'
 import {
@@ -7,6 +6,7 @@ import {
   createDefaultFreePlanSnapshot,
   fetchBillingPlan,
   canUseFeature,
+  featuresForEffectivePlan,
   getPersistedAccount,
   planShapeFromAccount,
 } from '../utils/planClient.js'
@@ -14,6 +14,9 @@ import {
   BILLING_GATED_FEATURE_KEYS,
   hasFullProFeatureAccess,
 } from '../utils/planAccess.js'
+import { SET_PLAN_EVENT } from '../utils/billingPlanEvents.js'
+
+export { setPlanFromLogin } from '../utils/billingPlanEvents.js'
 
 const BillingContext = createContext(null)
 
@@ -39,14 +42,17 @@ export function BillingProvider({ children }) {
   const [limitModalOpen, setLimitModalOpen] = useState(false)
   const [upgradeMessage, setUpgradeMessage] = useState(DEFAULT_UPGRADE)
   const [limitMessage, setLimitMessage] = useState(LIMIT_MSG)
-  const location = useLocation()
 
   const fetchPlan = useCallback(async () => {
+    if (import.meta.env.VITE_DISABLE_BILLING_FETCH === 'true') {
+      return null
+    }
     setLoading(true)
     setError(null)
     try {
       const res = await fetchBillingPlan({ force: true })
       if (res == null) {
+        console.warn('PLAN FETCH FAILED: billing API returned null')
         setError('Billing plan unavailable')
         setBillingPlanData((prev) => planStateIfFetchFails(prev))
         return null
@@ -64,6 +70,7 @@ export function BillingProvider({ children }) {
       setBillingPlanData(normalized)
       return normalized
     } catch (e) {
+      console.warn('PLAN FETCH FAILED:', e)
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
       setBillingPlanData((prev) => planStateIfFetchFails(prev))
@@ -86,10 +93,57 @@ export function BillingProvider({ children }) {
     if (billingPlanData != null) {
       return
     }
-    void fetchPlan().catch(() => {
+    if (import.meta.env.VITE_DISABLE_BILLING_FETCH === 'true') {
+      const shaped = planShapeFromAccount(getPersistedAccount())
+      if (shaped) {
+        const t = String(shaped.plan ?? shaped.effectivePlan ?? 'free').toLowerCase()
+        setBillingPlanData({ ...shaped, plan: t, effectivePlan: t })
+      } else {
+        setBillingPlanData(createDefaultFreePlanSnapshot())
+      }
+      return
+    }
+    void fetchPlan().catch((e) => {
+      console.warn('PLAN FETCH FAILED:', e)
       setBillingPlanData((prev) => planStateIfFetchFails(prev))
     })
-  }, [location.pathname, fetchPlan, billingPlanData])
+  }, [billingPlanData, fetchPlan])
+
+  useEffect(() => {
+    const handler = (e) => {
+      const detail = e.detail
+      if (!detail) return
+      const account = detail.account ?? detail
+      const shaped = planShapeFromAccount(account)
+      if (shaped) {
+        const t = String(shaped.plan ?? shaped.effectivePlan ?? 'free').toLowerCase()
+        setBillingPlanData({
+          ...shaped,
+          plan: t,
+          effectivePlan: t,
+          planType: String(account.plan_type ?? shaped.planType ?? t).toLowerCase(),
+          trialActive: shaped.trialActive,
+          trialEndsAt: account.trial_ends_at ?? detail.trialEndsAt ?? null,
+          subscriptionEndsAt: account.subscription_ends_at ?? detail.subscriptionEndsAt ?? null,
+        })
+        return
+      }
+      const p = String(detail.plan ?? 'free').toLowerCase()
+      const base = createDefaultFreePlanSnapshot()
+      setBillingPlanData({
+        ...base,
+        plan: p,
+        effectivePlan: p,
+        planType: p,
+        features: featuresForEffectivePlan(p),
+        trialActive: detail.trialActive ?? false,
+        trialEndsAt: detail.trialEndsAt ?? null,
+        subscriptionEndsAt: detail.subscriptionEndsAt ?? null,
+      })
+    }
+    window.addEventListener(SET_PLAN_EVENT, handler)
+    return () => window.removeEventListener(SET_PLAN_EVENT, handler)
+  }, [])
 
   useEffect(() => {
     const onUpgrade = (e) => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
 import { getStoredToken } from '../utils/authClient.js'
+import { setPlanFromLogin } from '../utils/billingPlanEvents.js'
 import { clearBillingPlanCache, persistAccountFromAuth } from '../utils/planClient.js'
 
 const GOOGLE_CLIENT_ID =
@@ -58,6 +59,7 @@ export default function Login() {
         }
         clearBillingPlanCache()
         persistAccountFromAuth(account)
+        setPlanFromLogin({ account })
         localStorage.setItem('token', token)
         navigate('/dashboard', { replace: true })
       } catch (err) {
@@ -127,6 +129,7 @@ export default function Login() {
       if (token) {
         clearBillingPlanCache()
         persistAccountFromAuth(account)
+        setPlanFromLogin({ account })
         localStorage.setItem('token', token)
         navigate('/dashboard', { replace: true })
       } else {

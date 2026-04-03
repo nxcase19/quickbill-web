@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
 import { getStoredToken } from '../utils/authClient.js'
+import { setPlanFromLogin } from '../utils/billingPlanEvents.js'
 import { clearBillingPlanCache, persistAccountFromAuth } from '../utils/planClient.js'
 
 export default function Register() {
@@ -30,6 +31,7 @@ export default function Register() {
       if (token) {
         clearBillingPlanCache()
         persistAccountFromAuth(data?.account)
+        setPlanFromLogin({ account: data?.account })
         localStorage.setItem('token', token)
         navigate('/dashboard', { replace: true })
       } else {
