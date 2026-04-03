@@ -24,8 +24,12 @@ function ProBadge() {
 }
 
 function NavEntry({ to, label, feature, onCloseMenu, variant }) {
-  const { billingFeatureEnabled, openUpgrade } = useBilling()
-  const locked = feature != null && !billingFeatureEnabled(feature)
+  const { billingFeatureEnabled, openUpgrade, effectivePlan, trialActive } = useBilling()
+  const plan = String(effectivePlan ?? 'free').toLowerCase()
+  const isPaid = plan === 'pro' || plan === 'basic'
+  const isTrial = plan === 'trial' || trialActive === true
+  const locked =
+    feature != null && !isPaid && !isTrial && !billingFeatureEnabled(feature)
   const base =
     variant === 'mobile'
       ? 'min-h-11 w-full rounded-lg px-4 py-3 text-left text-base font-medium transition'
