@@ -125,6 +125,42 @@ function withSyncedLimits(p) {
   }
 }
 
+/**
+ * Normalize GET /api/billing/plan (axios response or raw body).
+ * @param {unknown} res
+ * @returns {ReturnType<typeof createDefaultFreePlanSnapshot> | null}
+ */
+export function normalizeBillingPlanResponse(res) {
+  const outer = res?.data ?? res ?? {}
+  const raw =
+    outer &&
+    typeof outer === 'object' &&
+    outer.success === true &&
+    outer.data != null &&
+    typeof outer.data === 'object'
+      ? outer.data
+      : outer
+  if (!raw || typeof raw !== 'object') return null
+  return withSyncedLimits({
+    plan: String(raw.plan ?? raw.effectivePlan ?? 'free').toLowerCase(),
+    effectivePlan: String(raw.effectivePlan ?? raw.plan ?? 'free').toLowerCase(),
+    planType: String(raw.planType ?? 'free').toLowerCase(),
+    trialActive: raw.trialActive === true,
+    trialEndsAt: raw.trialEndsAt ?? null,
+    subscriptionEndsAt: raw.subscriptionEndsAt ?? null,
+    cancelAtPeriodEnd: raw.cancelAtPeriodEnd === true,
+    features: raw.features && typeof raw.features === 'object' ? raw.features : {},
+    limits:
+      raw.limits && typeof raw.limits === 'object'
+        ? { ...raw.limits }
+        : {
+            freeDocumentsPerDay: FREE_DOCS_PER_DAY,
+            freeDocumentsPerMonth: FREE_DOCS_PER_MONTH,
+          },
+    documentsCreatedToday: raw.documentsCreatedToday ?? null,
+  })
+}
+
 function readPersistedBillingPlan() {
   try {
     const raw = localStorage.getItem(LS_BILLING_PLAN)
@@ -138,6 +174,17 @@ function persistBillingPlanToStorage(plan) {
   if (!plan || typeof plan !== 'object') return
   try {
     localStorage.setItem(LS_BILLING_PLAN, JSON.stringify(plan))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Clears in-memory + persisted billing snapshot only (keeps quickbill_account_v1). */
+export function clearBillingPlanApiCache() {
+  cache = null
+  inflight = null
+  try {
+    localStorage.removeItem(LS_BILLING_PLAN)
   } catch {
     /* ignore */
   }
@@ -213,27 +260,11 @@ export async function fetchBillingPlan(options = {}) {
   }
 
   const applyResponse = (res) => {
-    let raw = res?.data ?? res
-    if (raw && typeof raw === 'object' && raw.success === true && raw.data != null && typeof raw.data === 'object') {
-      raw = raw.data
-    }
-    if (raw && typeof raw === 'object') {
-      const eff = raw.effectivePlan ?? raw.plan ?? 'free'
-      const normalized =
-        eff != null && String(eff).trim() !== '' ? String(eff).toLowerCase() : 'free'
-      raw = {
-        ...raw,
-        effectivePlan: normalized,
-        plan:
-          raw.plan != null && String(raw.plan).trim() !== ''
-            ? String(raw.plan).toLowerCase()
-            : normalized,
-      }
-    }
-    const next = withSyncedLimits(raw)
+    const next = normalizeBillingPlanResponse(res)
+    if (!next) return null
     cache = next
     persistBillingPlanToStorage(next)
-    return cache
+    return next
   }
 
   if (force) {
@@ -249,10 +280,7 @@ export async function fetchBillingPlan(options = {}) {
   inflight = api
     .get('/api/billing/plan', billingPlanRequestConfig())
     .then((res) => applyResponse(res))
-    .catch(() => {
-      cache = null
-      return null
-    })
+    .catch(() => null)
     .finally(() => {
       inflight = null
     })

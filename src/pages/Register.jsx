@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
 import { getStoredToken } from '../utils/authClient.js'
-import { setPlanFromLogin } from '../utils/billingPlanEvents.js'
-import { clearBillingPlanCache, persistAccountFromAuth } from '../utils/planClient.js'
+import { useBilling } from '../context/BillingContext.jsx'
+import { clearBillingPlanApiCache, persistAccountFromAuth } from '../utils/planClient.js'
 
 export default function Register() {
+  const { refreshPlan } = useBilling()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -29,10 +30,10 @@ export default function Register() {
       })
       const token = data?.token
       if (token) {
-        clearBillingPlanCache()
+        clearBillingPlanApiCache()
         persistAccountFromAuth(data?.account)
-        setPlanFromLogin({ account: data?.account })
         localStorage.setItem('token', token)
+        await refreshPlan()
         navigate('/dashboard', { replace: true })
       } else {
         setError('Invalid response from server')

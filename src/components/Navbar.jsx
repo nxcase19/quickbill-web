@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useBilling } from '../context/BillingContext.jsx'
 import { clearStoredAuth, getStoredToken } from '../utils/authClient.js'
-import { clearBillingPlanCache, showPricingUpgradeCta } from '../utils/planClient.js'
+import { showPricingUpgradeCta } from '../utils/planClient.js'
 import { hasFullProFeatureAccess } from '../utils/planAccess.js'
 
 const navLinks = [
@@ -71,7 +71,7 @@ function AuthShellNavbar() {
 }
 
 function MainAppNavbar() {
-  const { plan } = useBilling()
+  const { plan, resetBillingForLogout } = useBilling()
   const showUpgradeNav = showPricingUpgradeCta(plan)
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
@@ -92,7 +92,7 @@ function MainAppNavbar() {
 
   function handleLogout() {
     clearStoredAuth()
-    clearBillingPlanCache()
+    resetBillingForLogout()
     setOpen(false)
     navigate('/login', { replace: true })
   }

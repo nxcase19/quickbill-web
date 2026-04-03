@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
 import { getStoredToken } from '../utils/authClient.js'
-import { setPlanFromLogin } from '../utils/billingPlanEvents.js'
-import { clearBillingPlanCache, persistAccountFromAuth } from '../utils/planClient.js'
+import { useBilling } from '../context/BillingContext.jsx'
+import { clearBillingPlanApiCache, persistAccountFromAuth } from '../utils/planClient.js'
 
 const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '116989847577-70mo65o5i8849k28vbmjtp4r84ulobv2.apps.googleusercontent.com'
 
 export default function Login() {
+  const { refreshPlan } = useBilling()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -57,10 +58,10 @@ export default function Login() {
           setError('Google login failed')
           return
         }
-        clearBillingPlanCache()
+        clearBillingPlanApiCache()
         persistAccountFromAuth(account)
-        setPlanFromLogin({ account })
         localStorage.setItem('token', token)
+        await refreshPlan()
         navigate('/dashboard', { replace: true })
       } catch (err) {
         console.error(err)
@@ -69,7 +70,7 @@ export default function Login() {
         )
       }
     },
-    [navigate],
+    [navigate, refreshPlan],
   )
 
   useEffect(() => {
@@ -127,10 +128,10 @@ export default function Login() {
       const token = data?.token
       const account = data?.account
       if (token) {
-        clearBillingPlanCache()
+        clearBillingPlanApiCache()
         persistAccountFromAuth(account)
-        setPlanFromLogin({ account })
         localStorage.setItem('token', token)
+        await refreshPlan()
         navigate('/dashboard', { replace: true })
       } else {
         setError('Invalid response from server')

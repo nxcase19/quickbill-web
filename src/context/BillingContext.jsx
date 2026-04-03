@@ -14,28 +14,15 @@ import {
   BILLING_GATED_FEATURE_KEYS,
   hasFullProFeatureAccess,
 } from '../utils/planAccess.js'
-import { SET_PLAN_EVENT } from '../utils/billingPlanEvents.js'
-
-export { setPlanFromLogin } from '../utils/billingPlanEvents.js'
 
 const BillingContext = createContext(null)
 
 const DEFAULT_UPGRADE = 'ฟีเจอร์นี้ใช้ได้เฉพาะแพ็กเกจ Pro'
 const LIMIT_MSG = 'คุณใช้ครบแล้วในวันนี้'
 
-/** Keep last known billing state on API failure; else hydrate from login-persisted account. */
-function planStateIfFetchFails(prev) {
-  if (prev != null) return prev
-  const fromAuth = planShapeFromAccount(getPersistedAccount())
-  if (fromAuth) {
-    const t = String(fromAuth.plan ?? fromAuth.effectivePlan ?? 'free').toLowerCase()
-    return { ...fromAuth, plan: t, effectivePlan: t }
-  }
-  return createDefaultFreePlanSnapshot()
-}
-
 export function BillingProvider({ children }) {
   const [billingPlanData, setBillingPlanData] = useState(null)
+  const [billingStatus, setBillingStatus] = useState('idle')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
@@ -43,42 +30,74 @@ export function BillingProvider({ children }) {
   const [upgradeMessage, setUpgradeMessage] = useState(DEFAULT_UPGRADE)
   const [limitMessage, setLimitMessage] = useState(LIMIT_MSG)
 
+  const resetBillingForLogout = useCallback(() => {
+    clearBillingPlanCache()
+    setBillingPlanData(null)
+    setBillingStatus('idle')
+    setError(null)
+    setLoading(false)
+  }, [])
+
   const fetchPlan = useCallback(async () => {
-    if (import.meta.env.VITE_DISABLE_BILLING_FETCH === 'true') {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      resetBillingForLogout()
       return null
     }
+
+    if (import.meta.env.VITE_DISABLE_BILLING_FETCH === 'true') {
+      setLoading(true)
+      setError(null)
+      try {
+        const shaped = planShapeFromAccount(getPersistedAccount())
+        let next
+        if (shaped) {
+          const t = String(shaped.plan ?? shaped.effectivePlan ?? 'free').toLowerCase()
+          next = {
+            ...shaped,
+            plan: t,
+            effectivePlan: t,
+            planType: String(shaped.planType ?? t).toLowerCase(),
+            trialEndsAt: null,
+            subscriptionEndsAt: null,
+            cancelAtPeriodEnd: false,
+            documentsCreatedToday: null,
+          }
+        } else {
+          next = createDefaultFreePlanSnapshot()
+        }
+        setBillingPlanData(next)
+        setBillingStatus('ready')
+        return next
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    setBillingStatus('loading')
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchBillingPlan({ force: true })
-      if (res == null) {
+      const normalized = await fetchBillingPlan({ force: true })
+      if (normalized == null) {
         console.warn('PLAN FETCH FAILED: billing API returned null')
         setError('Billing plan unavailable')
-        setBillingPlanData((prev) => planStateIfFetchFails(prev))
+        setBillingStatus('error')
         return null
       }
-      const planData = res?.data ?? res ?? createDefaultFreePlanSnapshot()
-      const tier = String(
-        planData?.plan ?? planData?.effectivePlan ?? 'free',
-      ).toLowerCase()
-      const normalized = {
-        ...planData,
-        plan: tier,
-        effectivePlan: tier,
-      }
-      console.log('FETCH PLAN RESULT:', normalized)
       setBillingPlanData(normalized)
+      setBillingStatus('ready')
       return normalized
     } catch (e) {
       console.warn('PLAN FETCH FAILED:', e)
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
-      setBillingPlanData((prev) => planStateIfFetchFails(prev))
+      setBillingStatus('error')
       return null
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [resetBillingForLogout])
 
   const refreshPlan = fetchPlan
 
@@ -87,62 +106,14 @@ export function BillingProvider({ children }) {
     if (!token) {
       clearBillingPlanCache()
       setBillingPlanData(null)
+      setBillingStatus('idle')
       setError(null)
+      setLoading(false)
       return
     }
-    if (billingPlanData != null) {
-      return
-    }
-    if (import.meta.env.VITE_DISABLE_BILLING_FETCH === 'true') {
-      const shaped = planShapeFromAccount(getPersistedAccount())
-      if (shaped) {
-        const t = String(shaped.plan ?? shaped.effectivePlan ?? 'free').toLowerCase()
-        setBillingPlanData({ ...shaped, plan: t, effectivePlan: t })
-      } else {
-        setBillingPlanData(createDefaultFreePlanSnapshot())
-      }
-      return
-    }
-    void fetchPlan().catch((e) => {
-      console.warn('PLAN FETCH FAILED:', e)
-      setBillingPlanData((prev) => planStateIfFetchFails(prev))
-    })
-  }, [billingPlanData, fetchPlan])
-
-  useEffect(() => {
-    const handler = (e) => {
-      const detail = e.detail
-      if (!detail) return
-      const account = detail.account ?? detail
-      const shaped = planShapeFromAccount(account)
-      if (shaped) {
-        const t = String(shaped.plan ?? shaped.effectivePlan ?? 'free').toLowerCase()
-        setBillingPlanData({
-          ...shaped,
-          plan: t,
-          effectivePlan: t,
-          planType: String(account.plan_type ?? shaped.planType ?? t).toLowerCase(),
-          trialActive: shaped.trialActive,
-          trialEndsAt: account.trial_ends_at ?? detail.trialEndsAt ?? null,
-          subscriptionEndsAt: account.subscription_ends_at ?? detail.subscriptionEndsAt ?? null,
-        })
-        return
-      }
-      const p = String(detail.plan ?? 'free').toLowerCase()
-      const base = createDefaultFreePlanSnapshot()
-      setBillingPlanData({
-        ...base,
-        plan: p,
-        effectivePlan: p,
-        planType: p,
-        features: featuresForEffectivePlan(p),
-        trialActive: detail.trialActive ?? false,
-        trialEndsAt: detail.trialEndsAt ?? null,
-        subscriptionEndsAt: detail.subscriptionEndsAt ?? null,
-      })
-    }
-    window.addEventListener(SET_PLAN_EVENT, handler)
-    return () => window.removeEventListener(SET_PLAN_EVENT, handler)
+    void fetchPlan()
+    // Intentionally once on mount: billing is refreshed via refreshPlan (login, checkout, manual).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -169,14 +140,17 @@ export function BillingProvider({ children }) {
     setLimitModalOpen(false)
   }, [])
 
+  const effectivePlanStr = billingPlanData
+    ? String(billingPlanData.plan || billingPlanData.effectivePlan || 'free').toLowerCase()
+    : ''
+
   const value = useMemo(
     () => ({
       billingPlanData,
+      billingStatus,
       /** @deprecated use billingPlanData — alias for backward compatibility */
       plan: billingPlanData,
-      effectivePlan: String(
-        billingPlanData?.plan || billingPlanData?.effectivePlan || 'free',
-      ).toLowerCase(),
+      effectivePlan: effectivePlanStr,
       planType: billingPlanData?.planType ?? 'free',
       trialActive: billingPlanData?.trialActive ?? false,
       trialEndsAt: billingPlanData?.trialEndsAt ?? null,
@@ -189,23 +163,34 @@ export function BillingProvider({ children }) {
       error,
       fetchPlan,
       refreshPlan,
+      resetBillingForLogout,
       openUpgrade,
       /** @param {'export'|'purchase_orders'|'tax_purchase'} key */
       billingFeatureEnabled: (key) => {
+        if (!billingPlanData) {
+          return canUseFeature(key)
+        }
         if (
-          billingPlanData &&
           BILLING_GATED_FEATURE_KEYS.has(key) &&
           hasFullProFeatureAccess(billingPlanData)
         ) {
           return true
         }
-        if (billingPlanData?.features && typeof billingPlanData.features[key] === 'boolean') {
+        if (billingPlanData.features && typeof billingPlanData.features[key] === 'boolean') {
           return billingPlanData.features[key] === true
         }
         return canUseFeature(key)
       },
     }),
-    [billingPlanData, loading, error, fetchPlan, openUpgrade],
+    [
+      billingPlanData,
+      billingStatus,
+      effectivePlanStr,
+      loading,
+      error,
+      fetchPlan,
+      openUpgrade,
+    ],
   )
 
   return (

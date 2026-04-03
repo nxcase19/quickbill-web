@@ -86,7 +86,7 @@ const BILLING_CELEBRATE_KEY = 'quickbill_billing_celebrate'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { plan: billingPlanApi, openUpgrade, refreshPlan } = useBilling()
+  const { plan: billingPlanApi, openUpgrade, billingStatus } = useBilling()
   const [celebrateProCheckout, setCelebrateProCheckout] = useState(false)
   const [trialInfo, setTrialInfo] = useState(null)
   const [usage, setUsage] = useState(null)
@@ -99,22 +99,32 @@ export default function Dashboard() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
-  const effectivePlan = String(
-    billingPlanApi?.plan ?? billingPlanApi?.effectivePlan ?? 'free',
-  ).toLowerCase()
+  const planReady = billingStatus === 'ready'
+  const billingPlanLoading = billingStatus === 'loading' && billingPlanApi == null
+  const billingPlanErrorNoData = billingStatus === 'error' && billingPlanApi == null
+
+  const effectiveTier =
+    billingPlanApi != null
+      ? String(billingPlanApi.plan ?? billingPlanApi.effectivePlan ?? 'free').toLowerCase()
+      : null
   const accessPlan =
-    billingPlanApi && hasFullProFeatureAccess(billingPlanApi) ? 'pro' : effectivePlan
+    billingPlanApi && hasFullProFeatureAccess(billingPlanApi)
+      ? 'pro'
+      : (effectiveTier ?? 'free')
   const access = getPlanAccess(accessPlan)
   const canExport = access.canExport
   const canTaxPurchaseExport = access.canExport && access.canUseAdvancedTax
 
-  const planLabel = effectivePlan
+  const planLabel = effectiveTier ?? ''
   const isFreePlan =
+    planReady &&
     billingPlanApi != null &&
     !hasFullProFeatureAccess(billingPlanApi) &&
-    getPlanAccess(effectivePlan).isFree
-  const planBadgeText = dashboardPlanBadgeText(effectivePlan)
-  const showFreePlanUi = billingPlanApi != null && isFreePlan
+    effectiveTier != null &&
+    getPlanAccess(effectiveTier).isFree
+  const planBadgeText =
+    effectiveTier != null ? dashboardPlanBadgeText(effectiveTier) : 'แพ็กเกจ'
+  const showFreePlanUi = planReady && isFreePlan
 
   const docsToday =
     usage?.today?.limit != null && Number.isFinite(Number(usage.today?.used))
@@ -123,10 +133,6 @@ export default function Dashboard() {
           Number.isFinite(Number(billingPlanApi.documentsCreatedToday))
         ? Number(billingPlanApi.documentsCreatedToday)
         : null
-
-  useEffect(() => {
-    refreshPlan()
-  }, [refreshPlan])
 
   useEffect(() => {
     try {
@@ -253,6 +259,22 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-svh flex-col gap-8 py-8 md:py-10">
+      {billingPlanLoading ? (
+        <div
+          className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+          role="status"
+        >
+          กำลังโหลดข้อมูลแพ็กเกจ…
+        </div>
+      ) : null}
+      {billingPlanErrorNoData ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          โหลดข้อมูลแพ็กเกจไม่สำเร็จ กรุณารีเฟรช
+        </div>
+      ) : null}
       {showTrialBanner ? (
         trialExpired ? (
           <div
@@ -310,7 +332,7 @@ export default function Dashboard() {
           </div>
         )
       ) : null}
-      {billingPlanApi && planLabel !== 'trial' ? (
+      {planReady && billingPlanApi && planLabel !== 'trial' ? (
         <div className="mb-3">
           <div className="text-sm font-semibold text-slate-800">
             แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
@@ -340,13 +362,18 @@ export default function Dashboard() {
             </p>
           ) : null}
         </div>
-        {effectivePlan !== 'trial' ? (
+        {billingPlanLoading && effectiveTier == null ? (
+          <span
+            className="inline-flex h-8 w-28 shrink-0 animate-pulse rounded-full bg-slate-200"
+            aria-hidden
+          />
+        ) : billingPlanErrorNoData ? null : effectiveTier != null && effectiveTier !== 'trial' ? (
           <span
             className="inline-flex w-fit shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-800"
             aria-label="แพ็กเกจปัจจุบัน"
           >
             {planBadgeText}
-            {celebrateProCheckout && effectivePlan === 'pro' ? ' 🎉' : ''}
+            {celebrateProCheckout && effectiveTier === 'pro' ? ' 🎉' : ''}
           </span>
         ) : null}
       </div>
