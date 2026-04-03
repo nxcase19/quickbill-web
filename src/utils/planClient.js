@@ -1,4 +1,5 @@
 import api from '../services/api.js'
+import { getPlanAccess } from './planAccess.js'
 
 const LS_BILLING_PLAN = 'quickbill_billing_plan_v1'
 const LS_ACCOUNT = 'quickbill_account_v1'
@@ -11,21 +12,16 @@ export const FREE_DOCS_PER_DAY = 3
 export const FREE_DOCS_PER_MONTH = 50
 
 /**
- * Feature matrix by *effective* plan tier (same rules as server planService).
+ * Feature matrix by *effective* plan tier (same rules as server planAccess).
  * @param {string} effective
  */
 export function featuresForEffectivePlan(effective) {
-  const e = String(effective || 'free').toLowerCase()
-  if (e === 'trial') {
-    return { export: true, purchase_orders: true, tax_purchase: true }
+  const a = getPlanAccess(effective)
+  return {
+    export: a.canExport,
+    purchase_orders: a.canUsePO,
+    tax_purchase: a.canUseAdvancedTax,
   }
-  if (e === 'pro' || e === 'business') {
-    return { export: true, purchase_orders: true, tax_purchase: true }
-  }
-  if (e === 'basic') {
-    return { export: true, purchase_orders: false, tax_purchase: false }
-  }
-  return { export: false, purchase_orders: false, tax_purchase: false }
 }
 
 /**

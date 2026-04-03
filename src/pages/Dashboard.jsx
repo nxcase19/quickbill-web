@@ -4,6 +4,7 @@ import api from '../services/api.js'
 import { useBilling } from '../context/BillingContext.jsx'
 import { downloadBlobFromApiResponse } from '../utils/exportDownload.js'
 import { FREE_DOCS_PER_DAY, FREE_DOCS_PER_MONTH } from '../utils/planClient.js'
+import { getPlanAccess } from '../utils/planAccess.js'
 
 /** Same union as server planService.getEffectivePlan — from GET /api/billing/plan (effectivePlan). */
 const EFFECTIVE_PLAN_KEYS = new Set(['free', 'trial', 'basic', 'pro', 'business'])
@@ -102,7 +103,8 @@ function getUsageStatus(used, limit) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { plan: billingPlanApi, billingFeatureEnabled, openUpgrade, refreshPlan } = useBilling()
+  const { plan: billingPlanApi, openUpgrade, refreshPlan } = useBilling()
+  const [trialInfo, setTrialInfo] = useState(null)
   const [usage, setUsage] = useState(null)
   const [summary, setSummary] = useState(null)
   const [vatSummary, setVatSummary] = useState(null)
@@ -113,19 +115,19 @@ export default function Dashboard() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
-  const canExport = billingFeatureEnabled('export')
-  const canTaxPurchaseExport =
-    billingFeatureEnabled('export') && billingFeatureEnabled('tax_purchase')
-
   const effectivePlan = normalizeEffectivePlanFromApi(billingPlanApi)
+  const access = getPlanAccess(effectivePlan)
+  const canExport = access.canExport
+  const canTaxPurchaseExport = access.canExport && access.canUseAdvancedTax
+
   const planLabel = effectivePlan
+  const isFreePlan = access.isFree
   const planBadgeText = dashboardPlanBadgeText(effectivePlan, billingPlanApi?.trialEndsAt ?? null)
-  const showFreePlanUi =
-    billingPlanApi != null && effectivePlan === 'free'
+  const showFreePlanUi = billingPlanApi != null && isFreePlan
 
   const docsToday =
-    usage?.limit != null && Number.isFinite(Number(usage.count))
-      ? Number(usage.count)
+    usage?.today?.limit != null && Number.isFinite(Number(usage.today?.used))
+      ? Number(usage.today.used)
       : billingPlanApi?.documentsCreatedToday != null &&
           Number.isFinite(Number(billingPlanApi.documentsCreatedToday))
         ? Number(billingPlanApi.documentsCreatedToday)
@@ -134,6 +136,13 @@ export default function Dashboard() {
   useEffect(() => {
     refreshPlan()
   }, [refreshPlan])
+
+  useEffect(() => {
+    api
+      .get('/api/billing/trial-status')
+      .then((res) => setTrialInfo(res.data?.data ?? res.data))
+      .catch(() => setTrialInfo(null))
+  }, [])
 
   useEffect(() => {
     fetch('https://quickbill-server-production.up.railway.app/api/documents/usage', {
@@ -218,8 +227,98 @@ export default function Dashboard() {
       ? 'bg-slate-900 text-white shadow-md ring-2 ring-slate-900 ring-offset-2'
       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
 
+  const trialPlan = String(trialInfo?.plan ?? '').toLowerCase()
+  const trialPaid =
+    trialPlan === 'basic' || trialPlan === 'pro' || trialPlan === 'business'
+  const trialDaysLeft = trialInfo?.daysLeft
+  const trialExpired =
+    Boolean(trialInfo?.trialEnds) &&
+    trialDaysLeft != null &&
+    trialDaysLeft <= 0
+  const showTrialBanner =
+    trialInfo &&
+    !trialPaid &&
+    (trialInfo.isTrialActive === true ||
+      trialPlan === 'trial' ||
+      trialExpired)
+  const nearTrialEnd =
+    !trialExpired &&
+    trialDaysLeft != null &&
+    trialDaysLeft > 0 &&
+    trialDaysLeft <= 3
+
   return (
     <div className="flex min-h-svh flex-col gap-8 py-8 md:py-10">
+      {showTrialBanner ? (
+        trialExpired ? (
+          <div
+            role="alert"
+            style={{
+              background: '#fee2e2',
+              border: '1px solid #fecaca',
+              padding: '16px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+            }}
+          >
+            <div style={{ fontWeight: 'bold', color: '#991b1b' }}>
+              ทดลองใช้งานหมดแล้ว กรุณาอัปเกรดเพื่อใช้งานต่อ
+            </div>
+            <button
+              type="button"
+              style={{
+                marginTop: 12,
+                padding: '8px 16px',
+                background: '#dc2626',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+              onClick={() => navigate('/pricing?from=trial')}
+            >
+              ดูแพ็คเกจ 🚀
+            </button>
+          </div>
+        ) : (
+          <div
+            style={{
+              background: '#FFF3CD',
+              border: '1px solid #FFE69C',
+              padding: '16px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+            }}
+          >
+            <div style={{ fontWeight: 'bold' }}>ทดลองใช้งาน (Trial)</div>
+            <div>
+              เหลือ {trialDaysLeft != null ? Math.max(0, trialDaysLeft) : '—'} วันก่อนหมดทดลอง
+            </div>
+            {nearTrialEnd ? (
+              <div style={{ color: 'red', marginTop: 8 }}>
+                ⚠️ ใกล้หมดแล้ว อัปเกรดเพื่อใช้งานต่อ
+              </div>
+            ) : null}
+            <button
+              type="button"
+              style={{
+                marginTop: 12,
+                padding: '8px 16px',
+                background: '#ff9800',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+              onClick={() => navigate('/pricing?from=trial')}
+            >
+              ดูแพ็คเกจ 🚀
+            </button>
+          </div>
+        )
+      ) : null}
       {billingPlanApi ? (
         <div className="mb-3">
           <div className="text-sm font-semibold text-slate-800">
@@ -228,18 +327,18 @@ export default function Dashboard() {
           {planLabel === 'trial' ? (
             <div className="text-xs text-slate-500">ทดลองใช้งานเต็มระบบ</div>
           ) : null}
-          {planLabel === 'free' && usage && usage.limit != null ? (
+          {isFreePlan && usage?.today?.limit != null ? (
             <div className="text-xs text-orange-500">
-              ใช้ไปแล้ว {usage.count} / {usage.limit}
+              ใช้ไปแล้ว {usage.today.used} / {usage.today.limit}
             </div>
           ) : null}
-          {planLabel === 'free' ? (
+          {isFreePlan ? (
             <button
               type="button"
-              onClick={() => navigate('/pricing')}
+              onClick={() => navigate('/pricing?from=trial')}
               className="mt-2 text-xs text-blue-600 underline"
             >
-              อัปเกรดเพื่อใช้งานไม่จำกัด
+              อัปเกรด PRO 🚀
             </button>
           ) : null}
         </div>
@@ -261,7 +360,7 @@ export default function Dashboard() {
         </span>
       </div>
 
-      {usage && (
+      {usage && isFreePlan && (
         <div
           style={{
             padding: '14px',
@@ -309,7 +408,7 @@ export default function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => navigate('/pricing')}
+                onClick={() => navigate('/pricing?from=trial')}
                 style={{
                   background: '#2563eb',
                   color: 'white',
@@ -343,7 +442,7 @@ export default function Dashboard() {
             (นับเมื่อสร้างเอกสาร — อัปเกรดเพื่อเอกสารไม่จำกัดและปิด watermark)
           </p>
           <Link
-            to="/pricing"
+            to="/pricing?from=trial"
             className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-slate-900 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-slate-800 sm:w-auto"
           >
             ดูแพ็กเกจและอัปเกรด
@@ -437,7 +536,8 @@ export default function Dashboard() {
                   openUpgrade('อัปเกรดเพื่อใช้งานฟีเจอร์นี้')
                 }
               }}
-              className={`min-h-11 w-full rounded-lg bg-purple-600 px-4 py-3 text-center text-base font-semibold text-white shadow-sm hover:bg-purple-700 sm:flex-1 ${!canExport ? 'opacity-70' : ''}`}
+              disabled={!canExport}
+              className={`min-h-11 w-full rounded-lg bg-purple-600 px-4 py-3 text-center text-base font-semibold text-white shadow-sm hover:bg-purple-700 sm:flex-1 ${!canExport ? 'cursor-not-allowed opacity-70' : ''}`}
               aria-disabled={!canExport}
             >
               <span className="inline-flex flex-wrap items-center justify-center gap-1">
@@ -469,7 +569,8 @@ export default function Dashboard() {
                   openUpgrade('อัปเกรดเพื่อใช้งานฟีเจอร์นี้')
                 }
               }}
-              className={`min-h-11 w-full rounded-lg bg-purple-600 px-4 py-3 text-center text-base font-semibold text-white shadow-sm hover:bg-purple-700 sm:flex-1 ${!canTaxPurchaseExport ? 'opacity-70' : ''}`}
+              disabled={!canTaxPurchaseExport}
+              className={`min-h-11 w-full rounded-lg bg-purple-600 px-4 py-3 text-center text-base font-semibold text-white shadow-sm hover:bg-purple-700 sm:flex-1 ${!canTaxPurchaseExport ? 'cursor-not-allowed opacity-70' : ''}`}
               aria-disabled={!canTaxPurchaseExport}
             >
               <span className="inline-flex flex-wrap items-center justify-center gap-1">
@@ -544,7 +645,8 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={handleExport}
-                className={`min-h-11 w-full rounded-lg border-2 border-emerald-600 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 sm:max-w-xs sm:px-6 ${!canExport ? 'opacity-70' : ''}`}
+                disabled={!canExport}
+                className={`min-h-11 w-full rounded-lg border-2 border-emerald-600 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 sm:max-w-xs sm:px-6 ${!canExport ? 'cursor-not-allowed opacity-70' : ''}`}
                 aria-disabled={!canExport}
               >
                 <span className="inline-flex flex-wrap items-center justify-center gap-1">

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getStoredToken } from '../utils/authClient.js'
+import { useBilling } from '../context/BillingContext.jsx'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 if (!API_BASE_URL) {
@@ -53,9 +54,29 @@ const PLANS = [
   },
 ]
 
+function paidTierCheckoutLabel(cardId, effectivePlan) {
+  const e = String(effectivePlan || 'free').toLowerCase()
+  if (cardId === e && e !== 'free') {
+    return { label: 'ใช้งานอยู่', disabled: true }
+  }
+  if (e === 'free') {
+    return { label: 'อัปเกรด', disabled: false }
+  }
+  if (e === 'trial') {
+    return { label: 'ทดลองใช้ฟรี', disabled: false }
+  }
+  return { label: 'อัปเกรด', disabled: false }
+}
+
 export default function Pricing() {
+  const [searchParams] = useSearchParams()
+  const fromTrial = searchParams.get('from') === 'trial'
   const [loadingId, setLoadingId] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
+  const { plan: billingPlanApi } = useBilling()
+  const effectivePlan = String(
+    billingPlanApi?.effectivePlan ?? billingPlanApi?.planType ?? 'free',
+  ).toLowerCase()
 
   async function startCheckout(planId) {
     const token = getStoredToken()
@@ -119,9 +140,11 @@ export default function Pricing() {
           <div
             key={plan.id}
             className={`relative flex flex-col rounded-2xl border bg-white p-6 shadow-sm transition ${
-              plan.recommended
-                ? 'border-amber-400 ring-2 ring-amber-400/40'
-                : 'border-slate-200'
+              plan.id === 'pro' && fromTrial
+                ? 'highlight-pro border-amber-500 ring-2 ring-amber-400/50'
+                : plan.recommended
+                  ? 'border-amber-400 ring-2 ring-amber-400/40'
+                  : 'border-slate-200'
             }`}
           >
             {plan.recommended ? (
@@ -158,18 +181,24 @@ export default function Pricing() {
                 {plan.cta}
               </Link>
             ) : (
-              <button
-                type="button"
-                disabled={loadingId != null}
-                onClick={() => startCheckout(plan.id)}
-                className={`min-h-11 w-full rounded-xl py-3 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 ${
-                  plan.recommended
-                    ? 'bg-amber-500 hover:bg-amber-600'
-                    : 'bg-slate-900 hover:bg-slate-800'
-                }`}
-              >
-                {loadingId === plan.id ? 'กำลังเปิดหน้าชำระเงิน…' : plan.cta}
-              </button>
+              (() => {
+                const { label, disabled } = paidTierCheckoutLabel(plan.id, effectivePlan)
+                const btnDisabled = loadingId != null || disabled
+                return (
+                  <button
+                    type="button"
+                    disabled={btnDisabled}
+                    onClick={() => startCheckout(plan.id)}
+                    className={`min-h-11 w-full rounded-xl py-3 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 ${
+                      plan.recommended
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-slate-900 hover:bg-slate-800'
+                    }`}
+                  >
+                    {loadingId === plan.id ? 'กำลังเปิดหน้าชำระเงิน…' : label}
+                  </button>
+                )
+              })()
             )}
           </div>
         ))}
