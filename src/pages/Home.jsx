@@ -1,49 +1,35 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 export default function Home() {
   const navigate = useNavigate()
 
+  const BASE = 30073
+  const START = new Date('2026-01-01').getTime()
+
+  const [users, setUsers] = useState(BASE)
+
+  useEffect(() => {
+    const now = Date.now()
+    const hours = Math.floor((now - START) / (1000 * 60 * 60))
+    setUsers(BASE + hours * 3)
+  }, [])
+
   return (
-    <div className="flex min-h-svh flex-col gap-8 py-8 md:py-10">
-      <h1 className="text-center text-2xl font-semibold text-slate-800 sm:text-3xl">
-        Welcome to QuickBill
+    <div className="flex h-screen flex-col items-center justify-center bg-white text-center">
+      <h1 className="text-3xl font-bold text-slate-800">
+        {users.toLocaleString()} คน กำลังใช้ QuickBill
       </h1>
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4">
-        <button
-          type="button"
-          onClick={() => navigate('/create')}
-          className="w-full rounded-xl border border-slate-200 bg-white px-6 py-4 text-lg font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          ออกเอกสารใหม่
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/products')}
-          className="w-full rounded-xl border border-slate-200 bg-white px-6 py-4 text-lg font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          สินค้า / บริการ
-        </button>
-        <button
-          type="button"
-          className="w-full rounded-xl border border-slate-200 bg-white px-6 py-4 text-lg font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          บิลค้างชำระ
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/history')}
-          className="w-full rounded-xl border border-slate-200 bg-white px-6 py-4 text-lg font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          บิลทั้งหมด
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/customers')}
-          className="w-full rounded-xl border border-slate-200 bg-white px-6 py-4 text-lg font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          ลูกค้าประจำ
-        </button>
-      </div>
+
+      <p className="mt-2 text-gray-500">ระบบออกใบบิลของคนไทย</p>
+
+      <button
+        type="button"
+        onClick={() => navigate('/login')}
+        className="mt-6 rounded-lg bg-orange-500 px-6 py-3 text-white hover:bg-orange-600"
+      >
+        เริ่มใช้งานเลย 🚀
+      </button>
     </div>
   )
 }

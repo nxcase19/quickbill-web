@@ -6,6 +6,7 @@ import { getStoredToken } from './utils/authClient.js'
 import CreateDocument from './pages/CreateDocument.jsx'
 import Customers from './pages/Customers.jsx'
 import History from './pages/History.jsx'
+import AppHome from './pages/AppHome.jsx'
 import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
 import Products from './pages/Products.jsx'
@@ -36,14 +37,14 @@ export default function App() {
         <main className="app-container pb-8 md:pb-10">
           <OnboardingBanner />
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route
               path="/home"
               element={
                 <ProtectedRoute>
-                  <Home />
+                  <AppHome />
                 </ProtectedRoute>
               }
             />
