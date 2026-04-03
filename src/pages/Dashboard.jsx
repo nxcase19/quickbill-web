@@ -309,9 +309,7 @@ export default function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => {
-                  window.location.href = '/billing'
-                }}
+                onClick={() => navigate('/pricing')}
                 style={{
                   background: '#2563eb',
                   color: 'white',

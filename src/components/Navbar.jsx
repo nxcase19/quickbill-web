@@ -6,7 +6,6 @@ import { clearBillingPlanCache, showPricingUpgradeCta } from '../utils/planClien
 
 const navLinks = [
   { to: '/dashboard', label: 'แดชบอร์ด' },
-  { to: '/billing', label: 'Billing' },
   { to: '/create', label: 'ออกบิล' },
   { to: '/history', label: 'ประวัติ' },
   { to: '/customers', label: 'ลูกค้า' },

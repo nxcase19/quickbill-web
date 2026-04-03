@@ -18,7 +18,6 @@ import PP30 from './pages/PP30.jsx'
 import Suppliers from './pages/Suppliers.jsx'
 import Pricing from './pages/Pricing.jsx'
 import BillingSuccess from './pages/BillingSuccess.jsx'
-import Billing from './pages/Billing.jsx'
 
 function ProtectedRoute({ children }) {
   const token = getStoredToken()
@@ -101,14 +100,6 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Pricing />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/billing"
-              element={
-                <ProtectedRoute>
-                  <Billing />
                 </ProtectedRoute>
               }
             />
