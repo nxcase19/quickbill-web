@@ -4,11 +4,6 @@ import api from '../services/api.js'
 import { getStoredToken } from '../utils/authClient.js'
 import { clearBillingPlanCache, persistAccountFromAuth } from '../utils/planClient.js'
 
-function apiBaseUrl() {
-  const raw = import.meta.env.VITE_API_URL
-  return typeof raw === 'string' ? raw.replace(/\/$/, '') : ''
-}
-
 const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ||
   '116989847577-70mo65o5i8849k28vbmjtp4r84ulobv2.apps.googleusercontent.com'
@@ -28,20 +23,30 @@ export default function Login() {
           setError('Google login failed')
           return
         }
-        const base = apiBaseUrl()
-        const url = base ? `${base}/api/auth/google` : '/api/auth/google'
-        console.log('Sending Google token...', url)
+        console.log('API URL:', import.meta.env.VITE_API_URL)
+        const base = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+        if (!base) {
+          setError('ตั้งค่า VITE_API_URL ไม่พบ — ไม่สามารถเชื่อม API')
+          return
+        }
+        const url = `${base}/api/auth/google`
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ token: credential }),
         })
+        if (!res.ok) {
+          const text = await res.text()
+          console.error('Backend error:', text)
+          alert('Login failed')
+          return
+        }
         const payload = await res.json().catch(() => ({}))
-        if (!res.ok || payload.success === false) {
+        if (payload.success === false) {
           const msg =
             (typeof payload?.error === 'string' && payload.error) ||
-            `เข้าสู่ระบบด้วย Google ไม่สำเร็จ (${res.status})`
+            'เข้าสู่ระบบด้วย Google ไม่สำเร็จ'
           setError(msg)
           return
         }
