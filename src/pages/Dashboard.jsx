@@ -15,17 +15,7 @@ function normalizeEffectivePlanFromApi(b) {
   return EFFECTIVE_PLAN_KEYS.has(e) ? e : 'free'
 }
 
-function dashboardPlanBadgeText(effective, trialEndsAt) {
-  if (effective === 'trial') {
-    if (trialEndsAt) {
-      const end = new Date(String(trialEndsAt)).getTime()
-      if (Number.isFinite(end)) {
-        const days = Math.max(0, Math.ceil((end - Date.now()) / 86400000))
-        return `Trial (เหลือ ${days} วัน)`
-      }
-    }
-    return 'Trial'
-  }
+function dashboardPlanBadgeText(effective) {
   if (effective === 'business') return 'Business Plan'
   if (effective === 'pro') return 'Pro Plan'
   if (effective === 'basic') return 'Basic Plan'
@@ -122,7 +112,7 @@ export default function Dashboard() {
 
   const planLabel = effectivePlan
   const isFreePlan = access.isFree
-  const planBadgeText = dashboardPlanBadgeText(effectivePlan, billingPlanApi?.trialEndsAt ?? null)
+  const planBadgeText = dashboardPlanBadgeText(effectivePlan)
   const showFreePlanUi = billingPlanApi != null && isFreePlan
 
   const docsToday =
@@ -253,80 +243,64 @@ export default function Dashboard() {
         trialExpired ? (
           <div
             role="alert"
-            style={{
-              background: '#fee2e2',
-              border: '1px solid #fecaca',
-              padding: '16px',
-              borderRadius: '8px',
-              marginBottom: '16px',
-            }}
+            className="mb-1 rounded-xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm"
           >
-            <div style={{ fontWeight: 'bold', color: '#991b1b' }}>
-              ทดลองใช้งานหมดแล้ว กรุณาอัปเกรดเพื่อใช้งานต่อ
+            <div className="flex flex-wrap items-start gap-3">
+              <span className="text-2xl leading-none" aria-hidden>
+                🚀
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-bold text-red-900 sm:text-lg">
+                  ทดลองใช้งานหมดแล้ว กรุณาอัปเกรดเพื่อใช้งานต่อ
+                </p>
+                <button
+                  type="button"
+                  className="mt-3 min-h-11 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-700"
+                  onClick={() => navigate('/pricing?from=trial')}
+                >
+                  ดูแพ็คเกจ 🚀
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              style={{
-                marginTop: 12,
-                padding: '8px 16px',
-                background: '#dc2626',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              onClick={() => navigate('/pricing?from=trial')}
-            >
-              ดูแพ็คเกจ 🚀
-            </button>
           </div>
         ) : (
           <div
-            style={{
-              background: '#FFF3CD',
-              border: '1px solid #FFE69C',
-              padding: '16px',
-              borderRadius: '8px',
-              marginBottom: '16px',
-            }}
+            role="status"
+            className="mb-1 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4 shadow-md"
           >
-            <div style={{ fontWeight: 'bold' }}>ทดลองใช้งาน (Trial)</div>
-            <div>
-              เหลือ {trialDaysLeft != null ? Math.max(0, trialDaysLeft) : '—'} วันก่อนหมดทดลอง
-            </div>
-            {nearTrialEnd ? (
-              <div style={{ color: 'red', marginTop: 8 }}>
-                ⚠️ ใกล้หมดแล้ว อัปเกรดเพื่อใช้งานต่อ
+            <div className="flex flex-wrap items-start gap-3">
+              <span className="text-2xl leading-none" aria-hidden>
+                ⚡
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-bold text-amber-950 sm:text-lg">
+                  ทดลองใช้งาน (Trial)
+                </p>
+                <p className="mt-1 text-sm text-amber-950/90 sm:text-base">
+                  เหลือ {trialDaysLeft != null ? Math.max(0, trialDaysLeft) : '—'} วันก่อนหมดทดลอง
+                </p>
+                {nearTrialEnd ? (
+                  <p className="mt-2 text-sm font-medium text-red-600 sm:text-base">
+                    ⚠️ ใกล้หมดแล้ว อัปเกรดเพื่อใช้งานต่อ
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="mt-4 min-h-11 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-amber-700"
+                  onClick={() => navigate('/pricing?from=trial')}
+                >
+                  ดูแพ็คเกจ 🚀
+                </button>
               </div>
-            ) : null}
-            <button
-              type="button"
-              style={{
-                marginTop: 12,
-                padding: '8px 16px',
-                background: '#ff9800',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              onClick={() => navigate('/pricing?from=trial')}
-            >
-              ดูแพ็คเกจ 🚀
-            </button>
+            </div>
           </div>
         )
       ) : null}
-      {billingPlanApi ? (
+      {billingPlanApi && planLabel !== 'trial' ? (
         <div className="mb-3">
           <div className="text-sm font-semibold text-slate-800">
             แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
           </div>
-          {planLabel === 'trial' ? (
-            <div className="text-xs text-slate-500">ทดลองใช้งานเต็มระบบ</div>
-          ) : null}
           {isFreePlan && usage?.today?.limit != null ? (
             <div className="text-xs text-orange-500">
               ใช้ไปแล้ว {usage.today.used} / {usage.today.limit}
@@ -352,12 +326,14 @@ export default function Dashboard() {
             </p>
           ) : null}
         </div>
-        <span
-          className="inline-flex w-fit shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-800"
-          aria-label="แพ็กเกจปัจจุบัน"
-        >
-          {planBadgeText}
-        </span>
+        {effectivePlan !== 'trial' ? (
+          <span
+            className="inline-flex w-fit shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-800"
+            aria-label="แพ็กเกจปัจจุบัน"
+          >
+            {planBadgeText}
+          </span>
+        ) : null}
       </div>
 
       {usage && isFreePlan && (
