@@ -104,10 +104,18 @@ export default function App() {
               }
             />
             <Route
-              path="/billing/success"
+              path="/success"
               element={
                 <ProtectedRoute>
                   <BillingSuccess />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/success"
+              element={
+                <ProtectedRoute>
+                  <Navigate to="/success" replace />
                 </ProtectedRoute>
               }
             />

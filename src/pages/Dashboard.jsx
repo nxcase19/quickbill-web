@@ -91,9 +91,12 @@ function getUsageStatus(used, limit) {
   return 'normal'
 }
 
+const BILLING_CELEBRATE_KEY = 'quickbill_billing_celebrate'
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { plan: billingPlanApi, openUpgrade, refreshPlan } = useBilling()
+  const [celebrateProCheckout, setCelebrateProCheckout] = useState(false)
   const [trialInfo, setTrialInfo] = useState(null)
   const [usage, setUsage] = useState(null)
   const [summary, setSummary] = useState(null)
@@ -126,6 +129,19 @@ export default function Dashboard() {
   useEffect(() => {
     refreshPlan()
   }, [refreshPlan])
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(BILLING_CELEBRATE_KEY) === '1') {
+        sessionStorage.removeItem(BILLING_CELEBRATE_KEY)
+        setCelebrateProCheckout(true)
+        const t = window.setTimeout(() => setCelebrateProCheckout(false), 12000)
+        return () => clearTimeout(t)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   useEffect(() => {
     api
@@ -332,6 +348,7 @@ export default function Dashboard() {
             aria-label="แพ็กเกจปัจจุบัน"
           >
             {planBadgeText}
+            {celebrateProCheckout && effectivePlan === 'pro' ? ' 🎉' : ''}
           </span>
         ) : null}
       </div>
