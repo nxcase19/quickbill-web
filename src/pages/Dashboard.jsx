@@ -131,6 +131,17 @@ export default function Dashboard() {
   }, [refreshPlan])
 
   useEffect(() => {
+    api
+      .get('/api/billing/sync-plan')
+      .then((res) => {
+        const d = res.data?.data ?? res.data
+        console.log('SYNC PLAN:', d?.plan ?? d?.effectivePlan ?? d)
+        return refreshPlan()
+      })
+      .catch(() => {})
+  }, [refreshPlan])
+
+  useEffect(() => {
     try {
       if (sessionStorage.getItem(BILLING_CELEBRATE_KEY) === '1') {
         sessionStorage.removeItem(BILLING_CELEBRATE_KEY)

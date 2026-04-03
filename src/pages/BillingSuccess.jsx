@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBilling } from '../context/BillingContext.jsx'
+import api from '../services/api.js'
 import { persistAccountFromAuth } from '../utils/planClient.js'
 
 const PAID = new Set(['basic', 'pro', 'business'])
@@ -68,6 +69,13 @@ export default function BillingSuccess() {
         return
       }
       try {
+        if (attempts === 1 || attempts % 3 === 0) {
+          try {
+            await api.get('/api/billing/sync-plan')
+          } catch (syncErr) {
+            console.warn('billing sync-plan:', syncErr)
+          }
+        }
         const res = await fetch(`${API_BASE_URL}/api/billing/plan?_t=${Date.now()}`, {
           headers: { Authorization: `Bearer ${t}`, 'Cache-Control': 'no-store' },
           cache: 'no-store',
