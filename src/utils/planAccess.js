@@ -11,7 +11,7 @@ export const BILLING_GATED_FEATURE_KEYS = new Set([
  */
 export function hasFullProFeatureAccess(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return false
-  const plan = String(snapshot.effectivePlan ?? snapshot.planType ?? 'free').toLowerCase()
+  const plan = String(snapshot.plan ?? snapshot.effectivePlan ?? snapshot.planType ?? 'free').toLowerCase()
   const isPaid = plan === 'pro' || plan === 'basic'
   const isTrial = plan === 'trial' || snapshot.trialActive === true
   return isPaid || isTrial || plan === 'business'

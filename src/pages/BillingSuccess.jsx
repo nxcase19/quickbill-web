@@ -82,7 +82,7 @@ export default function BillingSuccess() {
         })
         const body = await res.json().catch(() => ({}))
         const data = body?.data ?? body
-        const eff = String(data?.effectivePlan || '').toLowerCase()
+        const eff = String(data?.plan ?? data?.effectivePlan ?? '').toLowerCase()
         if (PAID.has(eff)) {
           await finish()
           return

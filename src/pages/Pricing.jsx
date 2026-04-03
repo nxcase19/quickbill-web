@@ -75,7 +75,7 @@ export default function Pricing() {
   const [checkoutError, setCheckoutError] = useState(null)
   const { plan: billingPlanApi } = useBilling()
   const effectivePlan = String(
-    billingPlanApi?.effectivePlan ?? billingPlanApi?.planType ?? 'free',
+    billingPlanApi?.plan ?? billingPlanApi?.effectivePlan ?? billingPlanApi?.planType ?? 'free',
   ).toLowerCase()
 
   async function startCheckout(planId) {

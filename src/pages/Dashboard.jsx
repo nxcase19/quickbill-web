@@ -11,7 +11,7 @@ const EFFECTIVE_PLAN_KEYS = new Set(['free', 'trial', 'basic', 'pro', 'business'
 
 function normalizeEffectivePlanFromApi(b) {
   if (!b) return 'free'
-  const e = String(b.effectivePlan ?? 'free').toLowerCase()
+  const e = String(b.plan ?? b.effectivePlan ?? 'free').toLowerCase()
   return EFFECTIVE_PLAN_KEYS.has(e) ? e : 'free'
 }
 
@@ -133,17 +133,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     refreshPlan()
-  }, [refreshPlan])
-
-  useEffect(() => {
-    api
-      .get('/api/billing/sync-plan')
-      .then((res) => {
-        const d = res.data?.data ?? res.data
-        console.log('SYNC PLAN:', d?.plan ?? d?.effectivePlan ?? d)
-        return refreshPlan()
-      })
-      .catch(() => {})
   }, [refreshPlan])
 
   useEffect(() => {

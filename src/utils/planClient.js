@@ -45,6 +45,7 @@ export function planShapeFromAccount(account) {
   const trialActive = !!(trialStart && trialEnd && now >= trialStart && now < trialEnd)
   const effectivePlan = trialActive ? 'trial' : planType
   return {
+    plan: effectivePlan,
     planType,
     effectivePlan,
     trialActive,
@@ -156,6 +157,7 @@ export function clearBillingPlanCache() {
 /** Fallback snapshot when logged in but billing cache/API has not hydrated yet. */
 export function createDefaultFreePlanSnapshot() {
   return {
+    plan: 'free',
     planType: 'free',
     effectivePlan: 'free',
     trialActive: false,
@@ -211,7 +213,21 @@ export async function fetchBillingPlan(options = {}) {
   }
 
   const applyResponse = (res) => {
-    const next = withSyncedLimits(res?.data ?? res)
+    let raw = res?.data ?? res
+    if (raw && typeof raw === 'object') {
+      const eff = raw.effectivePlan ?? raw.plan ?? 'free'
+      const normalized =
+        eff != null && String(eff).trim() !== '' ? String(eff).toLowerCase() : 'free'
+      raw = {
+        ...raw,
+        effectivePlan: normalized,
+        plan:
+          raw.plan != null && String(raw.plan).trim() !== ''
+            ? String(raw.plan).toLowerCase()
+            : normalized,
+      }
+    }
+    const next = withSyncedLimits(raw)
     cache = next
     persistBillingPlanToStorage(next)
     return cache
@@ -261,26 +277,33 @@ export function canUseFeature(feature) {
   if (p?.features && typeof p.features[feature] === 'boolean') {
     return p.features[feature] === true
   }
-  const eff = p?.effectivePlan ?? p?.planType ?? 'free'
+  const eff = p?.plan ?? p?.effectivePlan ?? p?.planType ?? 'free'
   return featuresForEffectivePlan(eff)[feature] === true
+}
+
+/** Effective access tier from GET /api/billing/plan — prefer `plan` / `effectivePlan`, not stored `planType`. */
+export function billingEffectiveTierFromSnapshot(p) {
+  if (!p || typeof p !== 'object') return 'free'
+  const t = p.plan ?? p.effectivePlan ?? p.planType ?? 'free'
+  return String(t || 'free').toLowerCase()
 }
 
 export function isFreePlan() {
   const p = getCurrentPlan()
   if (!p) return true
-  return String(p.effectivePlan || 'free').toLowerCase() === 'free'
+  return billingEffectiveTierFromSnapshot(p) === 'free'
 }
 
 export function isBasicPlan() {
   const p = getCurrentPlan()
   if (!p || p.trialActive) return false
-  return String(p.effectivePlan || '').toLowerCase() === 'basic'
+  return billingEffectiveTierFromSnapshot(p) === 'basic'
 }
 
 export function isProPlan() {
   const p = getCurrentPlan()
   if (!p) return false
-  const e = String(p.effectivePlan || '').toLowerCase()
+  const e = billingEffectiveTierFromSnapshot(p)
   if (e === 'trial') return true
   if (p.trialActive) return true
   return e === 'pro' || e === 'business'
@@ -289,7 +312,7 @@ export function isProPlan() {
 export function isBusinessPlan() {
   const p = getCurrentPlan()
   if (!p || p.trialActive) return false
-  return String(p.effectivePlan || '').toLowerCase() === 'business'
+  return billingEffectiveTierFromSnapshot(p) === 'business'
 }
 
 /**

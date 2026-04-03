@@ -90,7 +90,9 @@ export function BillingProvider({ children }) {
       billingPlanData,
       /** @deprecated use billingPlanData — alias for backward compatibility */
       plan: billingPlanData,
-      effectivePlan: billingPlanData?.effectivePlan ?? 'free',
+      effectivePlan: String(
+        billingPlanData?.plan ?? billingPlanData?.effectivePlan ?? 'free',
+      ).toLowerCase(),
       planType: billingPlanData?.planType ?? 'free',
       trialActive: billingPlanData?.trialActive ?? false,
       trialEndsAt: billingPlanData?.trialEndsAt ?? null,
