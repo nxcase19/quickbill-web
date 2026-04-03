@@ -7,6 +7,8 @@ import {
   createDefaultFreePlanSnapshot,
   fetchBillingPlan,
   canUseFeature,
+  getPersistedAccount,
+  planShapeFromAccount,
 } from '../utils/planClient.js'
 import {
   BILLING_GATED_FEATURE_KEYS,
@@ -17,6 +19,17 @@ const BillingContext = createContext(null)
 
 const DEFAULT_UPGRADE = 'ฟีเจอร์นี้ใช้ได้เฉพาะแพ็กเกจ Pro'
 const LIMIT_MSG = 'คุณใช้ครบแล้วในวันนี้'
+
+/** Keep last known billing state on API failure; else hydrate from login-persisted account. */
+function planStateIfFetchFails(prev) {
+  if (prev != null) return prev
+  const fromAuth = planShapeFromAccount(getPersistedAccount())
+  if (fromAuth) {
+    const t = String(fromAuth.plan ?? fromAuth.effectivePlan ?? 'free').toLowerCase()
+    return { ...fromAuth, plan: t, effectivePlan: t }
+  }
+  return createDefaultFreePlanSnapshot()
+}
 
 export function BillingProvider({ children }) {
   const [billingPlanData, setBillingPlanData] = useState(null)
@@ -33,6 +46,11 @@ export function BillingProvider({ children }) {
     setError(null)
     try {
       const res = await fetchBillingPlan({ force: true })
+      if (res == null) {
+        setError('Billing plan unavailable')
+        setBillingPlanData((prev) => planStateIfFetchFails(prev))
+        return null
+      }
       const planData = res?.data ?? res ?? createDefaultFreePlanSnapshot()
       const tier = String(
         planData?.plan ?? planData?.effectivePlan ?? 'free',
@@ -42,13 +60,13 @@ export function BillingProvider({ children }) {
         plan: tier,
         effectivePlan: tier,
       }
-      console.log('FRONT PLAN:', normalized)
+      console.log('FETCH PLAN RESULT:', normalized)
       setBillingPlanData(normalized)
       return normalized
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
-      setBillingPlanData(createDefaultFreePlanSnapshot())
+      setBillingPlanData((prev) => planStateIfFetchFails(prev))
       return null
     } finally {
       setLoading(false)
@@ -65,10 +83,13 @@ export function BillingProvider({ children }) {
       setError(null)
       return
     }
-    fetchPlan().catch(() => {
-      setBillingPlanData(createDefaultFreePlanSnapshot())
+    if (billingPlanData != null) {
+      return
+    }
+    void fetchPlan().catch(() => {
+      setBillingPlanData((prev) => planStateIfFetchFails(prev))
     })
-  }, [location.pathname, fetchPlan])
+  }, [location.pathname, fetchPlan, billingPlanData])
 
   useEffect(() => {
     const onUpgrade = (e) => {
