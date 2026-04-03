@@ -136,7 +136,7 @@ export default function Dashboard() {
   }, [refreshPlan])
 
   useEffect(() => {
-    fetch('/api/documents/usage', {
+    fetch('https://quickbill-server-production.up.railway.app/api/documents/usage', {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
