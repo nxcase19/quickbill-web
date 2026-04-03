@@ -126,23 +126,17 @@ export default function Dashboard() {
   }, [refreshPlan])
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      setUsage(null)
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      try {
-        const uRes = await api.get('/api/documents/usage/today')
-        if (!cancelled) setUsage(uRes.data ?? null)
-      } catch {
-        if (!cancelled) setUsage(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
+    fetch('/api/documents/usage', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setUsage(data)
+        }
+      })
   }, [])
 
   const handleExport = async () => {
@@ -256,6 +250,24 @@ export default function Dashboard() {
           {planBadgeText}
         </span>
       </div>
+
+      {usage && (
+        <div
+          style={{
+            background: '#f8fafc',
+            padding: '12px',
+            borderRadius: '10px',
+            marginBottom: '16px',
+          }}
+        >
+          <div>
+            วันนี้: {usage.today.used} / {usage.today.limit ?? '∞'} บิล
+          </div>
+          <div>
+            เดือนนี้: {usage.month.used} / {usage.month.limit ?? '∞'} บิล
+          </div>
+        </div>
+      )}
 
       {showFreePlanUi ? (
         <section
