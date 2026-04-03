@@ -214,6 +214,9 @@ export async function fetchBillingPlan(options = {}) {
 
   const applyResponse = (res) => {
     let raw = res?.data ?? res
+    if (raw && typeof raw === 'object' && raw.success === true && raw.data != null && typeof raw.data === 'object') {
+      raw = raw.data
+    }
     if (raw && typeof raw === 'object') {
       const eff = raw.effectivePlan ?? raw.plan ?? 'free'
       const normalized =

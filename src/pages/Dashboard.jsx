@@ -6,15 +6,6 @@ import { downloadBlobFromApiResponse } from '../utils/exportDownload.js'
 import { FREE_DOCS_PER_DAY, FREE_DOCS_PER_MONTH } from '../utils/planClient.js'
 import { getPlanAccess, hasFullProFeatureAccess } from '../utils/planAccess.js'
 
-/** Same union as server planService.getEffectivePlan — from GET /api/billing/plan (effectivePlan). */
-const EFFECTIVE_PLAN_KEYS = new Set(['free', 'trial', 'basic', 'pro', 'business'])
-
-function normalizeEffectivePlanFromApi(b) {
-  if (!b) return 'free'
-  const e = String(b.plan ?? b.effectivePlan ?? 'free').toLowerCase()
-  return EFFECTIVE_PLAN_KEYS.has(e) ? e : 'free'
-}
-
 function dashboardPlanBadgeText(effective) {
   if (effective === 'business') return 'Business Plan'
   if (effective === 'pro') return 'Pro Plan'
@@ -108,7 +99,9 @@ export default function Dashboard() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
-  const effectivePlan = normalizeEffectivePlanFromApi(billingPlanApi)
+  const effectivePlan = String(
+    billingPlanApi?.plan ?? billingPlanApi?.effectivePlan ?? 'free',
+  ).toLowerCase()
   const accessPlan =
     billingPlanApi && hasFullProFeatureAccess(billingPlanApi) ? 'pro' : effectivePlan
   const access = getPlanAccess(accessPlan)

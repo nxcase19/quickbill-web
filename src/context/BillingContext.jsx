@@ -32,10 +32,19 @@ export function BillingProvider({ children }) {
     setLoading(true)
     setError(null)
     try {
-      const p = await fetchBillingPlan({ force: true })
-      const next = p ?? createDefaultFreePlanSnapshot()
-      setBillingPlanData(next)
-      return p
+      const res = await fetchBillingPlan({ force: true })
+      const planData = res?.data ?? res ?? createDefaultFreePlanSnapshot()
+      const tier = String(
+        planData?.plan ?? planData?.effectivePlan ?? 'free',
+      ).toLowerCase()
+      const normalized = {
+        ...planData,
+        plan: tier,
+        effectivePlan: tier,
+      }
+      console.log('FRONT PLAN:', normalized)
+      setBillingPlanData(normalized)
+      return normalized
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
@@ -91,7 +100,7 @@ export function BillingProvider({ children }) {
       /** @deprecated use billingPlanData — alias for backward compatibility */
       plan: billingPlanData,
       effectivePlan: String(
-        billingPlanData?.plan ?? billingPlanData?.effectivePlan ?? 'free',
+        billingPlanData?.plan || billingPlanData?.effectivePlan || 'free',
       ).toLowerCase(),
       planType: billingPlanData?.planType ?? 'free',
       trialActive: billingPlanData?.trialActive ?? false,
