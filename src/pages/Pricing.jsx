@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getStoredToken } from '../utils/authClient.js'
 import { useBilling } from '../context/BillingContext.jsx'
@@ -54,18 +54,73 @@ const PLANS = [
   },
 ]
 
-function paidTierCheckoutLabel(cardId, effectivePlan) {
-  const e = String(effectivePlan || 'free').toLowerCase()
-  if (cardId === e && e !== 'free') {
-    return { label: 'ใช้งานอยู่', disabled: true }
+/** @type {Record<string, number>} */
+const TIER_RANK = Object.freeze({
+  free: 0,
+  trial: 1,
+  basic: 2,
+  pro: 3,
+  business: 4,
+})
+
+const PAID_CARD_IDS = new Set(['basic', 'pro', 'business'])
+
+/**
+ * Stored / effective tier for comparing pricing columns (not backend API).
+ * @param {Record<string, unknown> | null | undefined} data
+ * @returns {'free'|'trial'|'basic'|'pro'|'business'}
+ */
+function currentTierFromBilling(data) {
+  if (!data) return 'free'
+  const pt = String(data.planType ?? '').toLowerCase()
+  const eff = String(data.effectivePlan ?? '').toLowerCase()
+  const trialOn =
+    data.trialActive === true || eff === 'trial' || pt === 'trial'
+
+  for (const t of /** @type {const} */ (['business', 'pro', 'basic'])) {
+    if (pt === t || eff === t) return t
   }
-  if (e === 'free') {
-    return { label: 'อัปเกรด', disabled: false }
+  if (trialOn) return 'trial'
+  return 'free'
+}
+
+/**
+ * @param {'basic'|'pro'|'business'} cardId
+ * @param {Record<string, unknown> | null | undefined} billingData
+ */
+function paidTierButtonState(cardId, billingData) {
+  const current = currentTierFromBilling(billingData)
+  const cRank = TIER_RANK[current] ?? 0
+  const tRank = TIER_RANK[cardId] ?? 0
+
+  if (cardId === current) {
+    return { label: 'ใช้งานแพ็กเกจนี้', disabled: true, action: 'current' }
   }
-  if (e === 'trial') {
-    return { label: 'ทดลองใช้ฟรี', disabled: false }
+  if (tRank > cRank) {
+    return { label: 'อัปเกรด', disabled: false, action: 'upgrade' }
   }
-  return { label: 'อัปเกรด', disabled: false }
+  return { label: 'ดาวน์เกรด', disabled: true, action: 'downgrade' }
+}
+
+/**
+ * @param {Record<string, unknown> | null | undefined} billingData
+ * @param {boolean} isLoggedIn
+ */
+function freeTierButtonState(billingData, isLoggedIn) {
+  const current = currentTierFromBilling(billingData)
+  const onFreeOrTrial = current === 'free' || current === 'trial'
+
+  if (!isLoggedIn) {
+    return {
+      label: 'ทดลองใช้ฟรี',
+      to: '/register',
+      variant: 'register',
+    }
+  }
+  if (onFreeOrTrial) {
+    return { label: 'ใช้งานแพ็กเกจนี้', variant: 'current' }
+  }
+  return { label: 'ดาวน์เกรด', to: null, variant: 'downgrade' }
 }
 
 export default function Pricing() {
@@ -73,10 +128,17 @@ export default function Pricing() {
   const fromTrial = searchParams.get('from') === 'trial'
   const [loadingId, setLoadingId] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
-  const { plan: billingPlanApi } = useBilling()
-  const effectivePlan = String(
-    billingPlanApi?.plan ?? billingPlanApi?.effectivePlan ?? billingPlanApi?.planType ?? 'free',
-  ).toLowerCase()
+  const { plan: billingPlanApi, refreshPlan, loading: billingLoading } = useBilling()
+  const token = getStoredToken()
+  const isLoggedIn = Boolean(token)
+
+  const billingSnapshot = billingPlanApi ?? null
+
+  useEffect(() => {
+    if (token) {
+      void refreshPlan()
+    }
+  }, [refreshPlan, token])
 
   async function startCheckout(planId) {
     const token = getStoredToken()
@@ -174,28 +236,68 @@ export default function Pricing() {
               ))}
             </ul>
             {plan.ctaVariant === 'secondary' ? (
-              <Link
-                to="/dashboard"
-                className="min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white py-3 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
-              >
-                {plan.cta}
-              </Link>
+              (() => {
+                const st = freeTierButtonState(billingSnapshot, isLoggedIn)
+                if (st.variant === 'downgrade') {
+                  return (
+                    <button
+                      type="button"
+                      disabled
+                      className="min-h-11 w-full cursor-not-allowed rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-center text-sm font-semibold text-slate-500"
+                    >
+                      {st.label}
+                    </button>
+                  )
+                }
+                if (st.variant === 'current') {
+                  return (
+                    <span
+                      className="block min-h-11 w-full cursor-default rounded-xl border-2 border-emerald-200 bg-emerald-50 py-3 text-center text-sm font-semibold text-emerald-800"
+                      aria-current="true"
+                    >
+                      {st.label}
+                    </span>
+                  )
+                }
+                return (
+                  <Link
+                    to={st.to ?? '/register'}
+                    className="block min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white py-3 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  >
+                    {st.label}
+                  </Link>
+                )
+              })()
             ) : (
               (() => {
-                const { label, disabled } = paidTierCheckoutLabel(plan.id, effectivePlan)
-                const btnDisabled = loadingId != null || disabled
+                if (!PAID_CARD_IDS.has(plan.id)) return null
+                const { label, disabled, action } = paidTierButtonState(
+                  /** @type {'basic'|'pro'|'business'} */ (plan.id),
+                  billingSnapshot,
+                )
+                const awaitingBilling = billingLoading && billingSnapshot == null
+                const btnDisabled = loadingId != null || disabled || awaitingBilling
+                const isDowngrade = action === 'downgrade'
                 return (
                   <button
                     type="button"
                     disabled={btnDisabled}
-                    onClick={() => startCheckout(plan.id)}
-                    className={`min-h-11 w-full rounded-xl py-3 text-sm font-semibold text-white shadow-md transition disabled:opacity-60 ${
-                      plan.recommended
-                        ? 'bg-amber-500 hover:bg-amber-600'
-                        : 'bg-slate-900 hover:bg-slate-800'
+                    onClick={() => {
+                      if (action === 'upgrade') void startCheckout(plan.id)
+                    }}
+                    className={`min-h-11 w-full rounded-xl py-3 text-sm font-semibold shadow-md transition disabled:opacity-60 ${
+                      isDowngrade
+                        ? 'cursor-not-allowed bg-slate-500 text-white hover:bg-slate-500'
+                        : plan.recommended
+                          ? 'bg-amber-500 text-white hover:bg-amber-600'
+                          : 'bg-slate-900 text-white hover:bg-slate-800'
                     }`}
                   >
-                    {loadingId === plan.id ? 'กำลังเปิดหน้าชำระเงิน…' : label}
+                    {loadingId === plan.id
+                      ? 'กำลังเปิดหน้าชำระเงิน…'
+                      : billingLoading && billingSnapshot == null
+                        ? 'กำลังโหลด…'
+                        : label}
                   </button>
                 )
               })()
