@@ -13,6 +13,13 @@ function dashboardPlanBadgeText(effective) {
   return 'Free Plan'
 }
 
+function billingPlanUpgradeButtonLabel(currentPlan) {
+  const p = String(currentPlan || 'free').toLowerCase()
+  if (p === 'basic') return 'อัพเกรดเป็น PRO'
+  if (p === 'pro' || p === 'business') return 'จัดการแพ็คเกจ'
+  return 'อัพเกรดแพ็คเกจ'
+}
+
 function formatAmount(v) {
   const n = Number(v || 0)
   return n.toLocaleString('th-TH', {
@@ -87,11 +94,13 @@ const BILLING_CELEBRATE_KEY = 'quickbill_billing_celebrate'
 export default function Dashboard() {
   const navigate = useNavigate()
   const {
+    billingPlanData,
     plan: billingPlanApi,
     openUpgrade,
     billingStatus,
     isFreeEffectivePlan,
   } = useBilling()
+  const currentPlan = billingPlanData?.effectivePlan || 'free'
   const [celebrateProCheckout, setCelebrateProCheckout] = useState(false)
   const [trialInfo, setTrialInfo] = useState(null)
   const [usage, setUsage] = useState(null)
@@ -116,15 +125,6 @@ export default function Dashboard() {
           return String(v).toLowerCase()
         })()
       : null
-  const userPlan = effectiveTier
-
-  const getPlanActionLabel = (userPlan) => {
-    if (userPlan === 'pro' || userPlan === 'business') {
-      return 'จัดการแพ็กเกจ'
-    }
-    return 'อัพเกรด'
-  }
-
   const accessPlan =
     billingPlanApi && hasFullProFeatureAccess(billingPlanApi)
       ? 'pro'
@@ -349,22 +349,13 @@ export default function Dashboard() {
         <div className="text-sm font-semibold text-slate-800">
           แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
         </div>
-        <div style={{ color: 'red', fontWeight: 'bold' }}>DEBUG BUTTON HERE</div>
-        <div style={{ marginTop: '8px' }}>
+        <div className="mt-2">
           <button
             type="button"
             onClick={() => navigate('/pricing')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '8px',
-              border: 'none',
-              background: '#111827',
-              color: '#fff',
-              cursor: 'pointer',
-              fontSize: '12px',
-            }}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
           >
-            {getPlanActionLabel(userPlan)}
+            {billingPlanUpgradeButtonLabel(currentPlan)}
           </button>
         </div>
         {isFreePlan && usage?.today?.limit != null ? (
