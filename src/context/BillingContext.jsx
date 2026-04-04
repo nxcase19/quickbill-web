@@ -6,7 +6,6 @@ import {
   createDefaultFreePlanSnapshot,
   fetchBillingPlan,
   canUseFeature,
-  featuresForEffectivePlan,
   getPersistedAccount,
   planShapeFromAccount,
 } from '../utils/planClient.js'
@@ -83,6 +82,10 @@ export function BillingProvider({ children }) {
         console.warn('PLAN FETCH FAILED: billing API returned null')
         setError('Billing plan unavailable')
         setBillingStatus('error')
+        setBillingPlanData((prev) => {
+          if (prev) return prev
+          return null
+        })
         return null
       }
       setBillingPlanData(normalized)
@@ -93,6 +96,10 @@ export function BillingProvider({ children }) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
       setBillingStatus('error')
+      setBillingPlanData((prev) => {
+        if (prev) return prev
+        return null
+      })
       return null
     } finally {
       setLoading(false)
@@ -141,17 +148,22 @@ export function BillingProvider({ children }) {
   }, [])
 
   const effectivePlanStr = billingPlanData
-    ? String(billingPlanData.plan || billingPlanData.effectivePlan || 'free').toLowerCase()
+    ? String(billingPlanData.effectivePlan ?? billingPlanData.plan ?? '').toLowerCase()
     : ''
+
+  /** True only when billingPlanData exists and effective tier is explicitly `free` (never when data is null). */
+  const isFreeEffectivePlan = billingPlanData != null && effectivePlanStr === 'free'
 
   const value = useMemo(
     () => ({
       billingPlanData,
       billingStatus,
+      /** True only when billingPlanData exists and effective tier is free (never true when data is null). */
+      isFreeEffectivePlan,
       /** @deprecated use billingPlanData — alias for backward compatibility */
       plan: billingPlanData,
       effectivePlan: effectivePlanStr,
-      planType: billingPlanData?.planType ?? 'free',
+      planType: billingPlanData != null ? billingPlanData.planType ?? null : null,
       trialActive: billingPlanData?.trialActive ?? false,
       trialEndsAt: billingPlanData?.trialEndsAt ?? null,
       subscriptionEndsAt: billingPlanData?.subscriptionEndsAt ?? null,
@@ -168,6 +180,9 @@ export function BillingProvider({ children }) {
       /** @param {'export'|'purchase_orders'|'tax_purchase'} key */
       billingFeatureEnabled: (key) => {
         if (!billingPlanData) {
+          if (billingStatus === 'error') {
+            return BILLING_GATED_FEATURE_KEYS.has(key) ? false : canUseFeature(key)
+          }
           return canUseFeature(key)
         }
         if (
@@ -186,6 +201,7 @@ export function BillingProvider({ children }) {
       billingPlanData,
       billingStatus,
       effectivePlanStr,
+      isFreeEffectivePlan,
       loading,
       error,
       fetchPlan,

@@ -86,7 +86,12 @@ const BILLING_CELEBRATE_KEY = 'quickbill_billing_celebrate'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { plan: billingPlanApi, openUpgrade, billingStatus } = useBilling()
+  const {
+    plan: billingPlanApi,
+    openUpgrade,
+    billingStatus,
+    isFreeEffectivePlan,
+  } = useBilling()
   const [celebrateProCheckout, setCelebrateProCheckout] = useState(false)
   const [trialInfo, setTrialInfo] = useState(null)
   const [usage, setUsage] = useState(null)
@@ -105,7 +110,11 @@ export default function Dashboard() {
 
   const effectiveTier =
     billingPlanApi != null
-      ? String(billingPlanApi.plan ?? billingPlanApi.effectivePlan ?? 'free').toLowerCase()
+      ? (() => {
+          const v = billingPlanApi.effectivePlan ?? billingPlanApi.plan
+          if (v == null || String(v).trim() === '') return null
+          return String(v).toLowerCase()
+        })()
       : null
   const accessPlan =
     billingPlanApi && hasFullProFeatureAccess(billingPlanApi)
@@ -116,15 +125,10 @@ export default function Dashboard() {
   const canTaxPurchaseExport = access.canExport && access.canUseAdvancedTax
 
   const planLabel = effectiveTier ?? ''
-  const isFreePlan =
-    planReady &&
-    billingPlanApi != null &&
-    !hasFullProFeatureAccess(billingPlanApi) &&
-    effectiveTier != null &&
-    getPlanAccess(effectiveTier).isFree
+  const isFreePlan = planReady && isFreeEffectivePlan
   const planBadgeText =
     effectiveTier != null ? dashboardPlanBadgeText(effectiveTier) : 'แพ็กเกจ'
-  const showFreePlanUi = planReady && isFreePlan
+  const showFreePlanUi = isFreePlan
 
   const docsToday =
     usage?.today?.limit != null && Number.isFinite(Number(usage.today?.used))
