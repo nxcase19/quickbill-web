@@ -13,6 +13,14 @@ function dashboardPlanBadgeText(effective) {
   return 'Free Plan'
 }
 
+const getPlanActionLabel = (userPlan) => {
+  if (userPlan === 'pro' || userPlan === 'business') {
+    return 'จัดการแพ็กเกจ'
+  }
+
+  return 'อัพเกรด'
+}
+
 function formatAmount(v) {
   const n = Number(v || 0)
   return n.toLocaleString('th-TH', {
@@ -372,13 +380,31 @@ export default function Dashboard() {
             aria-hidden
           />
         ) : billingPlanErrorNoData ? null : effectiveTier != null && effectiveTier !== 'trial' ? (
-          <span
-            className="inline-flex w-fit shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-800"
-            aria-label="แพ็กเกจปัจจุบัน"
-          >
-            {planBadgeText}
-            {celebrateProCheckout && effectiveTier === 'pro' ? ' 🎉' : ''}
-          </span>
+          <div className="flex shrink-0 flex-col items-end">
+            <span
+              className="inline-flex w-fit shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-800"
+              aria-label="แพ็กเกจปัจจุบัน"
+            >
+              {planBadgeText}
+              {celebrateProCheckout && effectiveTier === 'pro' ? ' 🎉' : ''}
+            </span>
+            <button
+              type="button"
+              onClick={() => navigate('/pricing')}
+              style={{
+                marginTop: '8px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#111827',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              {getPlanActionLabel(effectiveTier)}
+            </button>
+          </div>
         ) : null}
       </div>
 
