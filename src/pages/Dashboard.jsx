@@ -1,3 +1,7 @@
+<h1 style={{ color: 'red' }}>
+  DEBUG DASHBOARD VERSION 999
+</h1>
+
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
