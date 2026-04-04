@@ -1,5 +1,3 @@
-console.log("HELLO TEST 123");
-
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
@@ -219,24 +217,16 @@ export default function Dashboard() {
 
     api
       .get('/api/reports/summary', { params })
-      .then((res) => setSummary(res.data?.summary || res.data))
+      .then((res) => setSummary(res.data?.summary ?? res.data ?? null))
       .catch(() => setSummary(null))
   }, [period, from, to])
 
   useEffect(() => {
     api
       .get('/api/reports/vat-summary')
-      .then((res) => setVatSummary(res.data?.summary || res.data))
+      .then((res) => setVatSummary(res.data?.summary ?? res.data ?? null))
       .catch(() => setVatSummary(null))
   }, [])
-
-  const vatPayable = Number(vatSummary?.vat_payable || 0)
-  const vatPayableClass =
-    vatPayable > 0
-      ? 'border-red-200 bg-red-50 text-red-700'
-      : vatPayable < 0
-        ? 'border-green-200 bg-green-50 text-green-700'
-        : 'border-slate-200 bg-white text-slate-900'
 
   const exportStatusBtn = (key) =>
     exportStatusFilter === key
@@ -522,9 +512,19 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card title="ภาษีขาย" value={vatSummary?.vat_sales} tone="taxSales" />
           <Card title="ภาษีซื้อ" value={vatSummary?.vat_purchase} tone="taxPurchase" />
-          <div className={`rounded-xl border p-5 shadow-sm ${vatPayableClass}`}>
+          <div
+            className={`rounded-xl border p-5 shadow-sm ${
+              Number(vatSummary?.vat_payable ?? 0) > 0
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : Number(vatSummary?.vat_payable ?? 0) < 0
+                  ? 'border-green-200 bg-green-50 text-green-700'
+                  : 'border-slate-200 bg-white text-slate-900'
+            }`}
+          >
             <p className="text-sm">ภาษีที่ต้องจ่าย</p>
-            <p className="mt-2 text-2xl font-semibold">{formatAmount(vatPayable)}</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {formatAmount(vatSummary?.vat_payable)}
+            </p>
           </div>
         </div>
       </section>
