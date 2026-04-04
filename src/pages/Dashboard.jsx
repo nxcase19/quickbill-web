@@ -13,14 +13,6 @@ function dashboardPlanBadgeText(effective) {
   return 'Free Plan'
 }
 
-const getPlanActionLabel = (userPlan) => {
-  if (userPlan === 'pro' || userPlan === 'business') {
-    return 'จัดการแพ็กเกจ'
-  }
-
-  return 'อัพเกรด'
-}
-
 function formatAmount(v) {
   const n = Number(v || 0)
   return n.toLocaleString('th-TH', {
@@ -124,6 +116,15 @@ export default function Dashboard() {
           return String(v).toLowerCase()
         })()
       : null
+  const userPlan = effectiveTier
+
+  const getPlanActionLabel = (userPlan) => {
+    if (userPlan === 'pro' || userPlan === 'business') {
+      return 'จัดการแพ็กเกจ'
+    }
+    return 'อัพเกรด'
+  }
+
   const accessPlan =
     billingPlanApi && hasFullProFeatureAccess(billingPlanApi)
       ? 'pro'
@@ -402,7 +403,7 @@ export default function Dashboard() {
                 fontSize: '12px',
               }}
             >
-              {getPlanActionLabel(effectiveTier)}
+              {getPlanActionLabel(userPlan)}
             </button>
           </div>
         ) : null}
