@@ -32,12 +32,13 @@ export function downloadBlobFromApiResponse(res) {
   const parsed = disposition
     ? filenameFromContentDisposition(disposition)
     : null
-  const filename = parsed ?? 'export.xlsx'
 
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = filename
+  if (parsed) {
+    a.download = parsed
+  }
 
   document.body.appendChild(a)
   a.click()
