@@ -66,6 +66,18 @@ const TIER_RANK = Object.freeze({
 
 const PAID_CARD_IDS = new Set(['basic', 'pro', 'business'])
 
+const getButtonLabel = (userPlan, planId) => {
+  if (userPlan === planId) {
+    return 'ใช้งานแพ็กเกจนี้'
+  }
+
+  if (userPlan === 'trial' || userPlan === 'free') {
+    return 'อัพเกรด'
+  }
+
+  return 'เปลี่ยนแพ็กเกจ'
+}
+
 /**
  * Map GET /api/auth/me `data` (or persisted account) to a pricing tier.
  * Uses `plan_type` so `business` is distinct from collapsed `plan: 'pro'`.
@@ -311,7 +323,7 @@ export default function Pricing() {
                       disabled
                       className="min-h-11 w-full cursor-not-allowed rounded-xl border-2 border-slate-200 bg-slate-100 py-3 text-center text-sm font-semibold text-slate-500"
                     >
-                      {st.label}
+                      {getButtonLabel(userPlan, plan.id)}
                     </button>
                   )
                 }
@@ -321,7 +333,7 @@ export default function Pricing() {
                       className="block min-h-11 w-full cursor-default rounded-xl border-2 border-emerald-200 bg-emerald-50 py-3 text-center text-sm font-semibold text-emerald-800"
                       aria-current="true"
                     >
-                      {st.label}
+                      {getButtonLabel(userPlan, plan.id)}
                     </span>
                   )
                 }
@@ -330,14 +342,14 @@ export default function Pricing() {
                     to={st.to ?? '/register'}
                     className="block min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white py-3 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50"
                   >
-                    {st.label}
+                    {getButtonLabel(userPlan, plan.id)}
                   </Link>
                 )
               })()
             ) : (
               (() => {
                 if (!PAID_CARD_IDS.has(plan.id)) return null
-                const { label, disabled, action } = paidTierButtonState(
+                const { disabled, action } = paidTierButtonState(
                   /** @type {'basic'|'pro'|'business'} */ (plan.id),
                   userPlan,
                 )
@@ -361,7 +373,11 @@ export default function Pricing() {
                             : 'bg-slate-900 text-white hover:bg-slate-800'
                     }`}
                   >
-                    {loadingId === plan.id ? 'กำลังเปิดหน้าชำระเงิน…' : label}
+                    {loadingId === plan.id
+                      ? 'กำลังเปิดหน้าชำระเงิน…'
+                      : userPlan === null
+                        ? 'กำลังโหลด…'
+                        : getButtonLabel(userPlan, plan.id)}
                   </button>
                 )
               })()
