@@ -345,44 +345,42 @@ export default function Dashboard() {
           </div>
         )
       ) : null}
-      {billingPlanApi ? (
-        <div className="mb-3">
-          <div className="text-sm font-semibold text-slate-800">
-            แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
-          </div>
-          <div style={{ marginTop: '8px' }}>
-            <button
-              type="button"
-              onClick={() => navigate('/pricing')}
-              style={{
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                background: '#111827',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-            >
-              {getPlanActionLabel(userPlan)}
-            </button>
-          </div>
-          {isFreePlan && usage?.today?.limit != null ? (
-            <div className="text-xs text-orange-500">
-              ใช้ไปแล้ว {usage.today.used} / {usage.today.limit}
-            </div>
-          ) : null}
-          {isFreePlan ? (
-            <button
-              type="button"
-              onClick={() => navigate('/pricing?from=trial')}
-              className="mt-2 text-xs text-blue-600 underline"
-            >
-              อัปเกรด PRO 🚀
-            </button>
-          ) : null}
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-slate-800">
+          แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
         </div>
-      ) : null}
+        <div style={{ marginTop: '8px' }}>
+          <button
+            type="button"
+            onClick={() => navigate('/pricing')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              border: 'none',
+              background: '#111827',
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: '12px',
+            }}
+          >
+            {getPlanActionLabel(userPlan)}
+          </button>
+        </div>
+        {isFreePlan && usage?.today?.limit != null ? (
+          <div className="text-xs text-orange-500">
+            ใช้ไปแล้ว {usage.today.used} / {usage.today.limit}
+          </div>
+        ) : null}
+        {isFreePlan ? (
+          <button
+            type="button"
+            onClick={() => navigate('/pricing?from=trial')}
+            className="mt-2 text-xs text-blue-600 underline"
+          >
+            อัปเกรด PRO 🚀
+          </button>
+        ) : null}
+      </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-800 sm:text-3xl">Dashboard</h1>
