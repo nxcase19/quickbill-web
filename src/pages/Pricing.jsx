@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getStoredToken } from '../utils/authClient.js'
 import { useBilling } from '../context/BillingContext.jsx'
+import { getPersistedAccount, persistAccountFromAuth } from '../utils/planClient.js'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 if (!API_BASE_URL) {
@@ -66,34 +67,41 @@ const TIER_RANK = Object.freeze({
 const PAID_CARD_IDS = new Set(['basic', 'pro', 'business'])
 
 /**
- * Stored / effective tier for comparing pricing columns (not backend API).
+ * Map GET /api/auth/me `data` (or persisted account) to a pricing tier.
+ * Uses `plan_type` so `business` is distinct from collapsed `plan: 'pro'`.
  * @param {Record<string, unknown> | null | undefined} data
  * @returns {'free'|'trial'|'basic'|'pro'|'business'}
  */
-function currentTierFromBilling(data) {
-  if (!data) return 'free'
-  const pt = String(data.planType ?? '').toLowerCase()
-  const eff = String(data.effectivePlan ?? '').toLowerCase()
-  const trialOn =
-    data.trialActive === true || eff === 'trial' || pt === 'trial'
-
-  for (const t of /** @type {const} */ (['business', 'pro', 'basic'])) {
-    if (pt === t || eff === t) return t
-  }
-  if (trialOn) return 'trial'
+function deriveUserPlanForPricing(data) {
+  if (!data || typeof data !== 'object') return 'free'
+  const pt = String(data.plan_type ?? '').toLowerCase()
+  if (pt === 'business') return 'business'
+  if (pt === 'pro') return 'pro'
+  if (pt === 'basic') return 'basic'
+  if (pt === 'trial') return 'trial'
+  if (pt === 'free') return 'free'
+  const eff = String(data.plan ?? 'free').toLowerCase()
+  if (data.is_trial_active === true || eff === 'trial') return 'trial'
+  if (eff === 'basic') return 'basic'
+  if (eff === 'pro') return 'pro'
   return 'free'
+}
+
+function buildUserFromMePayload(data) {
+  if (!data || typeof data !== 'object') return null
+  const plan = deriveUserPlanForPricing(data)
+  return { ...data, plan }
 }
 
 /**
  * @param {'basic'|'pro'|'business'} cardId
- * @param {Record<string, unknown> | null | undefined} billingData
+ * @param {'free'|'trial'|'basic'|'pro'|'business'} userPlan
  */
-function paidTierButtonState(cardId, billingData) {
-  const current = currentTierFromBilling(billingData)
-  const cRank = TIER_RANK[current] ?? 0
+function paidTierButtonState(cardId, userPlan) {
+  const cRank = TIER_RANK[userPlan] ?? 0
   const tRank = TIER_RANK[cardId] ?? 0
 
-  if (cardId === current) {
+  if (cardId === userPlan) {
     return { label: 'ใช้งานแพ็กเกจนี้', disabled: true, action: 'current' }
   }
   if (tRank > cRank) {
@@ -103,24 +111,23 @@ function paidTierButtonState(cardId, billingData) {
 }
 
 /**
- * @param {Record<string, unknown> | null | undefined} billingData
+ * Free column: ทดลอง only when not logged in.
+ * Logged-in users never see ทดลอง here (rule 3); same tier → ใช้งานแพ็กเกจนี้ (rule 2).
+ * @param {'free'|'trial'|'basic'|'pro'|'business'} userPlan
  * @param {boolean} isLoggedIn
  */
-function freeTierButtonState(billingData, isLoggedIn) {
-  const current = currentTierFromBilling(billingData)
-  const onFreeOrTrial = current === 'free' || current === 'trial'
-
+function freeTierButtonState(userPlan, isLoggedIn) {
   if (!isLoggedIn) {
-    return {
-      label: 'ทดลองใช้ฟรี',
-      to: '/register',
-      variant: 'register',
-    }
+    return { variant: 'trial_cta', label: 'ทดลองใช้ฟรี', to: '/register' }
   }
-  if (onFreeOrTrial) {
-    return { label: 'ใช้งานแพ็กเกจนี้', variant: 'current' }
+  if (userPlan === 'free') {
+    return { variant: 'current', label: 'ใช้งานแพ็กเกจนี้' }
   }
-  return { label: 'ดาวน์เกรด', to: null, variant: 'downgrade' }
+  const uRank = TIER_RANK[userPlan] ?? 0
+  if (uRank > TIER_RANK.free) {
+    return { variant: 'downgrade', label: 'ดาวน์เกรด' }
+  }
+  return { variant: 'current', label: 'ใช้งานแพ็กเกจนี้' }
 }
 
 export default function Pricing() {
@@ -128,17 +135,59 @@ export default function Pricing() {
   const fromTrial = searchParams.get('from') === 'trial'
   const [loadingId, setLoadingId] = useState(null)
   const [checkoutError, setCheckoutError] = useState(null)
-  const { plan: billingPlanApi, refreshPlan, loading: billingLoading } = useBilling()
+  const { refreshPlan } = useBilling()
   const token = getStoredToken()
   const isLoggedIn = Boolean(token)
 
-  const billingSnapshot = billingPlanApi ?? null
+  const [user, setUser] = useState(() =>
+    token ? buildUserFromMePayload(getPersistedAccount()) : null,
+  )
+  const [meLoading, setMeLoading] = useState(() => Boolean(token))
+
+  const syncUserAndBilling = useCallback(async () => {
+    const t = getStoredToken()
+    if (!t) {
+      setUser(null)
+      setMeLoading(false)
+      return
+    }
+    setMeLoading(true)
+    try {
+      await refreshPlan()
+    } catch {
+      /* billing context still best-effort */
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/me?_t=${Date.now()}`, {
+        headers: {
+          Authorization: `Bearer ${t}`,
+          'Cache-Control': 'no-store',
+        },
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      const body = await res.json().catch(() => ({}))
+      if (body?.success && body.data && typeof body.data === 'object') {
+        const data = /** @type {Record<string, unknown>} */ (body.data)
+        persistAccountFromAuth(data)
+        setUser(buildUserFromMePayload(data))
+      } else {
+        setUser(buildUserFromMePayload(getPersistedAccount()))
+      }
+    } catch {
+      setUser(buildUserFromMePayload(getPersistedAccount()))
+    } finally {
+      setMeLoading(false)
+    }
+  }, [refreshPlan])
 
   useEffect(() => {
-    if (token) {
-      void refreshPlan()
-    }
-  }, [refreshPlan, token])
+    void syncUserAndBilling()
+  }, [syncUserAndBilling])
+
+  const userPlan = /** @type {'free'|'trial'|'basic'|'pro'|'business'} */ (
+    user?.plan ?? 'free'
+  )
 
   async function startCheckout(planId) {
     const token = getStoredToken()
@@ -237,7 +286,7 @@ export default function Pricing() {
             </ul>
             {plan.ctaVariant === 'secondary' ? (
               (() => {
-                const st = freeTierButtonState(billingSnapshot, isLoggedIn)
+                const st = freeTierButtonState(userPlan, isLoggedIn)
                 if (st.variant === 'downgrade') {
                   return (
                     <button
@@ -273,10 +322,10 @@ export default function Pricing() {
                 if (!PAID_CARD_IDS.has(plan.id)) return null
                 const { label, disabled, action } = paidTierButtonState(
                   /** @type {'basic'|'pro'|'business'} */ (plan.id),
-                  billingSnapshot,
+                  userPlan,
                 )
-                const awaitingBilling = billingLoading && billingSnapshot == null
-                const btnDisabled = loadingId != null || disabled || awaitingBilling
+                const awaitingMe = meLoading && !user
+                const btnDisabled = loadingId != null || disabled || awaitingMe
                 const isDowngrade = action === 'downgrade'
                 return (
                   <button
@@ -295,7 +344,7 @@ export default function Pricing() {
                   >
                     {loadingId === plan.id
                       ? 'กำลังเปิดหน้าชำระเงิน…'
-                      : billingLoading && billingSnapshot == null
+                      : awaitingMe
                         ? 'กำลังโหลด…'
                         : label}
                   </button>
