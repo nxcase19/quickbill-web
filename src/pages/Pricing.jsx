@@ -294,7 +294,9 @@ export default function Pricing() {
         )
       }
 
-      window.alert('ยกเลิกแพ็กเกจสำเร็จ')
+      window.alert(
+        'ยกเลิกแพ็กเกจสำเร็จ และระบบจะยังใช้งานได้จนสิ้นสุดรอบบิล',
+      )
       window.location.reload()
     } catch (e) {
       console.error(e)
@@ -440,7 +442,7 @@ export default function Pricing() {
                           onClick={() => void cancelSubscription()}
                           className="mt-2 w-full rounded-xl bg-red-500 px-4 py-2 text-white transition hover:bg-red-600 disabled:opacity-60"
                         >
-                          {cancelLoading ? 'กำลังดำเนินการ…' : 'ยกเลิกใช้บริการ'}
+                          {cancelLoading ? 'กำลังยกเลิก...' : 'ยกเลิกใช้บริการ'}
                         </button>
                         <p className="mt-1 text-center text-xs text-gray-500">
                           คุณยังสามารถใช้งานได้จนสิ้นสุดรอบบิล
@@ -454,10 +456,6 @@ export default function Pricing() {
           </div>
         ))}
       </div>
-
-      <p className="text-center text-xs text-slate-500">
-        การสมัครสมาชิกต่ออายุอัตโนมัติตามเงื่อนไข Stripe — ยกเลิกได้จากพอร์ทัลลูกค้าของ Stripe
-      </p>
     </div>
   )
 }
