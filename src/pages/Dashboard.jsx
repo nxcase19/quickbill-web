@@ -1,4 +1,4 @@
-<h1 style={{color:'red'}}>REAL DASHBOARD</h1>
+<h1 style={{ color: 'red' }}>REAL DASHBOARD</h1>
 
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -22,7 +22,7 @@ import { getPlanAccess, hasFullProFeatureAccess } from '../utils/planAccess.js'
   >
     ดูแพ็คเกจ / อัพเกรด 🚀
   </button>
-</div> 
+</div>
 
 function dashboardPlanBadgeText(effective) {
   if (effective === 'business') return 'Business Plan'
@@ -138,10 +138,10 @@ export default function Dashboard() {
   const effectiveTier =
     billingPlanApi != null
       ? (() => {
-          const v = billingPlanApi.effectivePlan ?? billingPlanApi.plan
-          if (v == null || String(v).trim() === '') return null
-          return String(v).toLowerCase()
-        })()
+        const v = billingPlanApi.effectivePlan ?? billingPlanApi.plan
+        if (v == null || String(v).trim() === '') return null
+        return String(v).toLowerCase()
+      })()
       : null
   const accessPlan =
     billingPlanApi && hasFullProFeatureAccess(billingPlanApi)
@@ -161,7 +161,7 @@ export default function Dashboard() {
     usage?.today?.limit != null && Number.isFinite(Number(usage.today?.used))
       ? Number(usage.today.used)
       : billingPlanApi?.documentsCreatedToday != null &&
-          Number.isFinite(Number(billingPlanApi.documentsCreatedToday))
+        Number.isFinite(Number(billingPlanApi.documentsCreatedToday))
         ? Number(billingPlanApi.documentsCreatedToday)
         : null
 
@@ -403,6 +403,22 @@ export default function Dashboard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-800 sm:text-3xl">Dashboard</h1>
+          
+          <div style={{ marginTop: 16 }}>
+            <button
+              onClick={() => window.location.href = '/pricing'}
+              style={{
+                padding: '10px 16px',
+                background: '#6366f1',
+                color: '#fff',
+                borderRadius: 8,
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              ดูแพ็คเกจ / อัพเกรด 🚀
+            </button>
+          </div>
           {showFreePlanUi ? (
             <p className="text-xs text-slate-500">
               เอกสาร PDF ของคุณจะแสดง watermark ในแพ็กเกจ Free
