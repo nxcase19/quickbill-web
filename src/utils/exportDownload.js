@@ -22,27 +22,27 @@ export function filenameFromContentDisposition(header) {
   return null
 }
 
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
 export function downloadBlobFromApiResponse(res) {
-  const blob = new Blob([res.data])
+  const blob = new Blob([res.data], { type: XLSX_MIME })
 
   const disposition =
     res.headers?.['content-disposition'] ||
     res.headers?.get?.('content-disposition')
 
-  const parsed = disposition
+  const filenameFromBackend = disposition
     ? filenameFromContentDisposition(disposition)
     : null
 
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  if (parsed) {
-    a.download = parsed
-  }
+  const objectUrl = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = filenameFromBackend || 'export.xlsx'
 
-  document.body.appendChild(a)
-  a.click()
-
-  a.remove()
-  window.URL.revokeObjectURL(url)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(objectUrl)
 }
