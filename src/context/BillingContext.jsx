@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import LimitModal from '../components/LimitModal.jsx'
 import UpgradeModal, { UPGRADE_MODAL_EVENT } from '../components/UpgradeModal.jsx'
 import {
@@ -29,7 +37,12 @@ export function BillingProvider({ children }) {
   const [upgradeMessage, setUpgradeMessage] = useState(DEFAULT_UPGRADE)
   const [limitMessage, setLimitMessage] = useState(LIMIT_MSG)
 
+  const isFetchingRef = useRef(false)
+  const inFlightPromiseRef = useRef(null)
+
   const resetBillingForLogout = useCallback(() => {
+    inFlightPromiseRef.current = null
+    isFetchingRef.current = false
     clearBillingPlanCache()
     setBillingPlanData(null)
     setBillingStatus('idle')
@@ -38,64 +51,82 @@ export function BillingProvider({ children }) {
   }, [])
 
   const fetchPlan = useCallback(async () => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      resetBillingForLogout()
-      return null
+    if (inFlightPromiseRef.current) {
+      return inFlightPromiseRef.current
     }
 
-    if (import.meta.env.VITE_DISABLE_BILLING_FETCH === 'true') {
-      setLoading(true)
-      setError(null)
+    const run = async () => {
+      isFetchingRef.current = true
       try {
-        const shaped = planShapeFromAccount(getPersistedAccount())
-        let next
-        if (shaped) {
-          const t = String(shaped.plan ?? shaped.effectivePlan ?? 'free').toLowerCase()
-          next = {
-            ...shaped,
-            plan: t,
-            effectivePlan: t,
-            planType: String(shaped.planType ?? t).toLowerCase(),
-            trialEndsAt: null,
-            subscriptionEndsAt: null,
-            cancelAtPeriodEnd: false,
-            documentsCreatedToday: null,
-          }
-        } else {
-          next = createDefaultFreePlanSnapshot()
+        const token = localStorage.getItem('token')
+        if (!token) {
+          resetBillingForLogout()
+          return null
         }
-        setBillingPlanData(next)
-        setBillingStatus('ready')
-        return next
+
+        if (import.meta.env.VITE_DISABLE_BILLING_FETCH === 'true') {
+          setLoading(true)
+          setError(null)
+          try {
+            const shaped = planShapeFromAccount(getPersistedAccount())
+            let next
+            if (shaped) {
+              const t = String(shaped.plan ?? shaped.effectivePlan ?? 'free').toLowerCase()
+              next = {
+                ...shaped,
+                plan: t,
+                effectivePlan: t,
+                planType: String(shaped.planType ?? t).toLowerCase(),
+                trialEndsAt: null,
+                subscriptionEndsAt: null,
+                cancelAtPeriodEnd: false,
+                documentsCreatedToday: null,
+              }
+            } else {
+              next = createDefaultFreePlanSnapshot()
+            }
+            if (!localStorage.getItem('token')) return null
+            setBillingPlanData(next)
+            setBillingStatus('ready')
+            return next
+          } finally {
+            setLoading(false)
+          }
+        }
+
+        setBillingStatus('loading')
+        setLoading(true)
+        setError(null)
+        try {
+          const p = await fetchBillingPlan({ force: true })
+          if (!localStorage.getItem('token')) return null
+          if (p) {
+            setBillingPlanData(p)
+            setBillingStatus('ready')
+            return p
+          }
+          console.warn('Billing API failed — keeping previous plan')
+          setError('Billing plan unavailable')
+          setBillingStatus('error')
+          return null
+        } catch (e) {
+          console.error('Billing fetch error:', e)
+          const msg = e instanceof Error ? e.message : String(e)
+          setError(msg)
+          setBillingStatus('error')
+          return null
+        } finally {
+          setLoading(false)
+        }
       } finally {
-        setLoading(false)
+        isFetchingRef.current = false
+        inFlightPromiseRef.current = null
       }
     }
 
-    setBillingStatus('loading')
-    setLoading(true)
-    setError(null)
-    try {
-      const p = await fetchBillingPlan({ force: true })
-      if (p) {
-        setBillingPlanData(p)
-        setBillingStatus('ready')
-        return p
-      }
-      console.warn('Billing API failed — keeping previous plan')
-      setError('Billing plan unavailable')
-      setBillingStatus('error')
-      return null
-    } catch (e) {
-      console.error('Billing fetch error:', e)
-      const msg = e instanceof Error ? e.message : String(e)
-      setError(msg)
-      setBillingStatus('error')
-      return null
-    } finally {
-      setLoading(false)
-    }
+    const p = run()
+    inFlightPromiseRef.current = p
+    return p
   }, [resetBillingForLogout])
 
   const refreshPlan = fetchPlan
@@ -111,7 +142,7 @@ export function BillingProvider({ children }) {
       return
     }
     void fetchPlan()
-    // Intentionally once on mount: billing is refreshed via refreshPlan (login, checkout, manual).
+    // Only on initial mount — no pathname / route listener. Use refreshPlan after login or manually.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
