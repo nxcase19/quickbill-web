@@ -349,6 +349,7 @@ export default function Dashboard() {
         <div className="text-sm font-semibold text-slate-800">
           แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
         </div>
+        <div style={{ color: 'red', fontWeight: 'bold' }}>DEBUG BUTTON HERE</div>
         <div style={{ marginTop: '8px' }}>
           <button
             type="button"
