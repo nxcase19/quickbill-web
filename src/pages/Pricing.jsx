@@ -95,9 +95,12 @@ function buildUserFromMePayload(data) {
 
 /**
  * @param {'basic'|'pro'|'business'} cardId
- * @param {'free'|'trial'|'basic'|'pro'|'business'} userPlan
+ * @param {'free'|'trial'|'basic'|'pro'|'business'|null} userPlan
  */
 function paidTierButtonState(cardId, userPlan) {
+  if (userPlan === null) {
+    return { label: 'กำลังโหลด…', disabled: true, action: 'loading' }
+  }
   const cRank = TIER_RANK[userPlan] ?? 0
   const tRank = TIER_RANK[cardId] ?? 0
 
@@ -111,12 +114,14 @@ function paidTierButtonState(cardId, userPlan) {
 }
 
 /**
- * Free column: ทดลอง only when not logged in.
- * Logged-in users never see ทดลอง here (rule 3); same tier → ใช้งานแพ็กเกจนี้ (rule 2).
- * @param {'free'|'trial'|'basic'|'pro'|'business'} userPlan
+ * Free column: ทดลอง only when not logged in (never while userPlan is null / loading).
+ * @param {'free'|'trial'|'basic'|'pro'|'business'|null} userPlan
  * @param {boolean} isLoggedIn
  */
 function freeTierButtonState(userPlan, isLoggedIn) {
+  if (userPlan === null) {
+    return { variant: 'loading', label: 'กำลังโหลด…' }
+  }
   if (!isLoggedIn) {
     return { variant: 'trial_cta', label: 'ทดลองใช้ฟรี', to: '/register' }
   }
@@ -185,9 +190,10 @@ export default function Pricing() {
     void syncUserAndBilling()
   }, [syncUserAndBilling])
 
-  const userPlan = /** @type {'free'|'trial'|'basic'|'pro'|'business'} */ (
-    user?.plan ?? 'free'
-  )
+  const userPlan =
+    /** @type {'free'|'trial'|'basic'|'pro'|'business'|null} */ (
+      meLoading ? null : (user?.plan ?? 'free')
+    )
 
   async function startCheckout(planId) {
     const token = getStoredToken()
@@ -287,6 +293,17 @@ export default function Pricing() {
             {plan.ctaVariant === 'secondary' ? (
               (() => {
                 const st = freeTierButtonState(userPlan, isLoggedIn)
+                if (st.variant === 'loading') {
+                  return (
+                    <button
+                      type="button"
+                      disabled
+                      className="min-h-11 w-full cursor-wait rounded-xl border-2 border-slate-200 bg-slate-50 py-3 text-center text-sm font-semibold text-slate-500"
+                    >
+                      {st.label}
+                    </button>
+                  )
+                }
                 if (st.variant === 'downgrade') {
                   return (
                     <button
@@ -324,9 +341,9 @@ export default function Pricing() {
                   /** @type {'basic'|'pro'|'business'} */ (plan.id),
                   userPlan,
                 )
-                const awaitingMe = meLoading && !user
-                const btnDisabled = loadingId != null || disabled || awaitingMe
+                const btnDisabled = loadingId != null || disabled
                 const isDowngrade = action === 'downgrade'
+                const isLoading = action === 'loading'
                 return (
                   <button
                     type="button"
@@ -335,18 +352,16 @@ export default function Pricing() {
                       if (action === 'upgrade') void startCheckout(plan.id)
                     }}
                     className={`min-h-11 w-full rounded-xl py-3 text-sm font-semibold shadow-md transition disabled:opacity-60 ${
-                      isDowngrade
-                        ? 'cursor-not-allowed bg-slate-500 text-white hover:bg-slate-500'
-                        : plan.recommended
-                          ? 'bg-amber-500 text-white hover:bg-amber-600'
-                          : 'bg-slate-900 text-white hover:bg-slate-800'
+                      isLoading
+                        ? 'cursor-wait bg-slate-200 text-slate-600 hover:bg-slate-200'
+                        : isDowngrade
+                          ? 'cursor-not-allowed bg-slate-500 text-white hover:bg-slate-500'
+                          : plan.recommended
+                            ? 'bg-amber-500 text-white hover:bg-amber-600'
+                            : 'bg-slate-900 text-white hover:bg-slate-800'
                     }`}
                   >
-                    {loadingId === plan.id
-                      ? 'กำลังเปิดหน้าชำระเงิน…'
-                      : awaitingMe
-                        ? 'กำลังโหลด…'
-                        : label}
+                    {loadingId === plan.id ? 'กำลังเปิดหน้าชำระเงิน…' : label}
                   </button>
                 )
               })()
