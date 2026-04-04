@@ -350,6 +350,23 @@ export default function Dashboard() {
           <div className="text-sm font-semibold text-slate-800">
             แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
           </div>
+          <div style={{ marginTop: '8px' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/pricing')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#111827',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '12px',
+              }}
+            >
+              {getPlanActionLabel(userPlan)}
+            </button>
+          </div>
           {isFreePlan && usage?.today?.limit != null ? (
             <div className="text-xs text-orange-500">
               ใช้ไปแล้ว {usage.today.used} / {usage.today.limit}
@@ -381,31 +398,13 @@ export default function Dashboard() {
             aria-hidden
           />
         ) : billingPlanErrorNoData ? null : effectiveTier != null && effectiveTier !== 'trial' ? (
-          <div className="flex shrink-0 flex-col items-end">
-            <span
-              className="inline-flex w-fit shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-800"
-              aria-label="แพ็กเกจปัจจุบัน"
-            >
-              {planBadgeText}
-              {celebrateProCheckout && effectiveTier === 'pro' ? ' 🎉' : ''}
-            </span>
-            <button
-              type="button"
-              onClick={() => navigate('/pricing')}
-              style={{
-                marginTop: '8px',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                background: '#111827',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '12px',
-              }}
-            >
-              {getPlanActionLabel(userPlan)}
-            </button>
-          </div>
+          <span
+            className="inline-flex w-fit shrink-0 items-center rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-800"
+            aria-label="แพ็กเกจปัจจุบัน"
+          >
+            {planBadgeText}
+            {celebrateProCheckout && effectiveTier === 'pro' ? ' 🎉' : ''}
+          </span>
         ) : null}
       </div>
 
