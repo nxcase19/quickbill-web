@@ -14,6 +14,21 @@ function dashboardPlanBadgeText(effective) {
   if (effective === 'basic') return 'Basic Plan'
   return 'Free Plan'
 }
+<div style={{ marginTop: 16 }}>
+  <button
+    onClick={() => window.location.href = '/pricing'}
+    style={{
+      padding: '10px 16px',
+      background: '#6366f1',
+      color: '#fff',
+      borderRadius: 8,
+      border: 'none',
+      cursor: 'pointer'
+    }}
+  >
+    ดูแพ็คเกจ / อัพเกรด 🚀
+  </button>
+</div>
 
 function billingPlanUpgradeButtonLabel(currentPlan) {
   const p = String(currentPlan || 'free').toLowerCase()
