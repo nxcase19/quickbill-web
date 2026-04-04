@@ -8,12 +8,6 @@ import { downloadBlobFromApiResponse } from '../utils/exportDownload.js'
 import { FREE_DOCS_PER_DAY, FREE_DOCS_PER_MONTH } from '../utils/planClient.js'
 import { getPlanAccess, hasFullProFeatureAccess } from '../utils/planAccess.js'
 
-function dashboardPlanBadgeText(effective) {
-  if (effective === 'business') return 'Business Plan'
-  if (effective === 'pro') return 'Pro Plan'
-  if (effective === 'basic') return 'Basic Plan'
-  return 'Free Plan'
-}
 <div style={{ marginTop: 16 }}>
   <button
     onClick={() => window.location.href = '/pricing'}
@@ -28,7 +22,14 @@ function dashboardPlanBadgeText(effective) {
   >
     ดูแพ็คเกจ / อัพเกรด 🚀
   </button>
-</div>
+</div> 
+
+function dashboardPlanBadgeText(effective) {
+  if (effective === 'business') return 'Business Plan'
+  if (effective === 'pro') return 'Pro Plan'
+  if (effective === 'basic') return 'Basic Plan'
+  return 'Free Plan'
+}
 
 function billingPlanUpgradeButtonLabel(currentPlan) {
   const p = String(currentPlan || 'free').toLowerCase()
