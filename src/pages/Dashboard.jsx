@@ -352,6 +352,15 @@ export default function Dashboard() {
         <div className="mt-2">
           <button
             type="button"
+            onClick={() => (window.location.href = '/pricing')}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm transition hover:bg-blue-700"
+          >
+            ดูแพ็คเกจ
+          </button>
+        </div>
+        <div className="mt-2">
+          <button
+            type="button"
             onClick={() => navigate('/pricing')}
             className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
           >
