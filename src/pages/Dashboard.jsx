@@ -1,5 +1,3 @@
-<h1 style={{ color: 'red' }}>REAL DASHBOARD</h1>
-
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
@@ -8,34 +6,11 @@ import { downloadBlobFromApiResponse } from '../utils/exportDownload.js'
 import { FREE_DOCS_PER_DAY, FREE_DOCS_PER_MONTH } from '../utils/planClient.js'
 import { getPlanAccess, hasFullProFeatureAccess } from '../utils/planAccess.js'
 
-<div style={{ marginTop: 16 }}>
-  <button
-    onClick={() => window.location.href = '/pricing'}
-    style={{
-      padding: '10px 16px',
-      background: '#6366f1',
-      color: '#fff',
-      borderRadius: 8,
-      border: 'none',
-      cursor: 'pointer'
-    }}
-  >
-    ดูแพ็คเกจ / อัพเกรด 🚀
-  </button>
-</div>
-
 function dashboardPlanBadgeText(effective) {
   if (effective === 'business') return 'Business Plan'
   if (effective === 'pro') return 'Pro Plan'
   if (effective === 'basic') return 'Basic Plan'
   return 'Free Plan'
-}
-
-function billingPlanUpgradeButtonLabel(currentPlan) {
-  const p = String(currentPlan || 'free').toLowerCase()
-  if (p === 'basic') return 'อัพเกรดเป็น PRO'
-  if (p === 'pro' || p === 'business') return 'จัดการแพ็คเกจ'
-  return 'อัพเกรดแพ็คเกจ'
 }
 
 function formatAmount(v) {
@@ -112,13 +87,11 @@ const BILLING_CELEBRATE_KEY = 'quickbill_billing_celebrate'
 export default function Dashboard() {
   const navigate = useNavigate()
   const {
-    billingPlanData,
     plan: billingPlanApi,
     openUpgrade,
     billingStatus,
     isFreeEffectivePlan,
   } = useBilling()
-  const currentPlan = billingPlanData?.effectivePlan || 'free'
   const [celebrateProCheckout, setCelebrateProCheckout] = useState(false)
   const [trialInfo, setTrialInfo] = useState(null)
   const [usage, setUsage] = useState(null)
@@ -370,55 +343,21 @@ export default function Dashboard() {
         <div className="mt-2">
           <button
             type="button"
-            onClick={() => (window.location.href = '/pricing')}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm transition hover:bg-blue-700"
-          >
-            ดูแพ็คเกจ
-          </button>
-        </div>
-        <div className="mt-2">
-          <button
-            type="button"
             onClick={() => navigate('/pricing')}
             className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
           >
-            {billingPlanUpgradeButtonLabel(currentPlan)}
+            ดูแพ็คเกจ / อัพเกรด 🚀
           </button>
         </div>
         {isFreePlan && usage?.today?.limit != null ? (
-          <div className="text-xs text-orange-500">
+          <div className="mt-2 text-xs text-orange-500">
             ใช้ไปแล้ว {usage.today.used} / {usage.today.limit}
           </div>
-        ) : null}
-        {isFreePlan ? (
-          <button
-            type="button"
-            onClick={() => navigate('/pricing?from=trial')}
-            className="mt-2 text-xs text-blue-600 underline"
-          >
-            อัปเกรด PRO 🚀
-          </button>
         ) : null}
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-800 sm:text-3xl">Dashboard</h1>
-          
-          <div style={{ marginTop: 16 }}>
-            <button
-              onClick={() => window.location.href = '/pricing'}
-              style={{
-                padding: '10px 16px',
-                background: '#6366f1',
-                color: '#fff',
-                borderRadius: 8,
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              ดูแพ็คเกจ / อัพเกรด 🚀
-            </button>
-          </div>
           {showFreePlanUi ? (
             <p className="text-xs text-slate-500">
               เอกสาร PDF ของคุณจะแสดง watermark ในแพ็กเกจ Free
