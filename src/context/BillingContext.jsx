@@ -77,29 +77,21 @@ export function BillingProvider({ children }) {
     setLoading(true)
     setError(null)
     try {
-      const normalized = await fetchBillingPlan({ force: true })
-      if (normalized == null) {
-        console.warn('PLAN FETCH FAILED: billing API returned null')
-        setError('Billing plan unavailable')
-        setBillingStatus('error')
-        setBillingPlanData((prev) => {
-          if (prev) return prev
-          return null
-        })
-        return null
+      const p = await fetchBillingPlan({ force: true })
+      if (p) {
+        setBillingPlanData(p)
+        setBillingStatus('ready')
+        return p
       }
-      setBillingPlanData(normalized)
-      setBillingStatus('ready')
-      return normalized
+      console.warn('Billing API failed — keeping previous plan')
+      setError('Billing plan unavailable')
+      setBillingStatus('error')
+      return null
     } catch (e) {
-      console.warn('PLAN FETCH FAILED:', e)
+      console.error('Billing fetch error:', e)
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
       setBillingStatus('error')
-      setBillingPlanData((prev) => {
-        if (prev) return prev
-        return null
-      })
       return null
     } finally {
       setLoading(false)
