@@ -345,7 +345,7 @@ export default function Dashboard() {
           </div>
         )
       ) : null}
-      {planReady && billingPlanApi && planLabel !== 'trial' ? (
+      {planReady && billingPlanApi ? (
         <div className="mb-3">
           <div className="text-sm font-semibold text-slate-800">
             แพ็กเกจ: {String(planLabel || 'free').toUpperCase()}
