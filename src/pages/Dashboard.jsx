@@ -1,6 +1,4 @@
-<h1 style={{ color: 'red' }}>
-  DEBUG DASHBOARD VERSION 999
-</h1>
+<h1 style={{color:'red'}}>REAL DASHBOARD</h1>
 
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
