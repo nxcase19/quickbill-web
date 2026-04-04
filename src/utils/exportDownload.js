@@ -28,9 +28,13 @@ const XLSX_MIME =
 export function downloadBlobFromApiResponse(res) {
   const blob = new Blob([res.data], { type: XLSX_MIME })
 
+  console.log(res.headers)
+
   const disposition =
     res.headers?.['content-disposition'] ??
     res.headers?.get?.('content-disposition')
+
+  console.log('DISPOSITION:', disposition)
 
   let filename = 'export.xlsx'
 
