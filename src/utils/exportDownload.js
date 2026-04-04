@@ -25,22 +25,14 @@ export function filenameFromContentDisposition(header) {
 export function downloadBlobFromApiResponse(res) {
   const blob = new Blob([res.data])
 
-  // 🔥 รองรับทั้ง axios และ fetch
   const disposition =
     res.headers?.['content-disposition'] ||
     res.headers?.get?.('content-disposition')
 
-  let filename = 'download.xlsx'
-
-  if (disposition) {
-    // รองรับทั้ง filename="..." และ filename=...
-    const match =
-      disposition.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i)
-
-    if (match && match[1]) {
-      filename = decodeURIComponent(match[1].replace(/"/g, ''))
-    }
-  }
+  const parsed = disposition
+    ? filenameFromContentDisposition(disposition)
+    : null
+  const filename = parsed ?? 'export.xlsx'
 
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
