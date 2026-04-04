@@ -1,5 +1,9 @@
 {
-    "rewrites": [
-      { "source": "/(.*)", "destination": "/" }
-    ]
-  }
+  "redirects": [
+    {
+      "source": "https://quickbill-web.vercel.app/(.*)",
+      "destination": "https://quickbill.dev/$1",
+      "permanent": true
+    }
+  ]
+}
