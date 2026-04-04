@@ -151,6 +151,7 @@ export default function Pricing() {
   const [searchParams] = useSearchParams()
   const fromTrial = searchParams.get('from') === 'trial'
   const [loadingId, setLoadingId] = useState(null)
+  const [cancelLoading, setCancelLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState(null)
   const { refreshPlan } = useBilling()
   const token = getStoredToken()
@@ -250,13 +251,63 @@ export default function Pricing() {
     }
   }
 
+  async function cancelSubscription() {
+    const ok = window.confirm(
+      'คุณต้องการยกเลิกแพ็กเกจหรือไม่?\nคุณยังสามารถใช้งานได้จนสิ้นสุดรอบบิล',
+    )
+    if (!ok) return
+
+    const token = getStoredToken()
+    if (!token) {
+      window.alert('กรุณาเข้าสู่ระบบ')
+      return
+    }
+
+    setCancelLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/billing/cancel-subscription`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      })
+
+      let data = {}
+      try {
+        data = await res.json()
+      } catch {
+        data = {}
+      }
+
+      if (!res.ok) {
+        const errMsg =
+          (typeof data?.error === 'string' && data.error) ||
+          `ไม่สามารถยกเลิกได้ (${res.status})`
+        throw new Error(errMsg)
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          typeof data?.error === 'string' ? data.error : 'ยกเลิกไม่สำเร็จ',
+        )
+      }
+
+      window.alert('ยกเลิกแพ็กเกจสำเร็จ')
+      window.location.reload()
+    } catch (e) {
+      console.error(e)
+      window.alert(e instanceof Error ? e.message : 'ยกเลิกไม่สำเร็จ')
+    } finally {
+      setCancelLoading(false)
+    }
+  }
+
   return (
     <div className="flex min-h-svh flex-col gap-10 py-8 md:py-12">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">แพ็กเกจ & ราคา</h1>
-        <p className="mx-auto mt-2 max-w-lg text-sm text-slate-600 sm:text-base">
-          ชำระผ่านบัตรด้วย Stripe Checkout — รองรับ SaaS จริง (รายเดือน) ราคาเป็นแนวทางและอาจปรับก่อนเปิดบริการ
-        </p>
         {checkoutError ? (
           <p className="mx-auto mt-3 max-w-lg text-xs text-red-600" role="alert">
             {checkoutError}
@@ -356,29 +407,47 @@ export default function Pricing() {
                 const btnDisabled = loadingId != null || disabled
                 const isDowngrade = action === 'downgrade'
                 const isLoading = action === 'loading'
+                const showCancelSubscription = action === 'current'
                 return (
-                  <button
-                    type="button"
-                    disabled={btnDisabled}
-                    onClick={() => {
-                      if (action === 'upgrade') void startCheckout(plan.id)
-                    }}
-                    className={`min-h-11 w-full rounded-xl py-3 text-sm font-semibold shadow-md transition disabled:opacity-60 ${
-                      isLoading
-                        ? 'cursor-wait bg-slate-200 text-slate-600 hover:bg-slate-200'
-                        : isDowngrade
-                          ? 'cursor-not-allowed bg-slate-500 text-white hover:bg-slate-500'
-                          : plan.recommended
-                            ? 'bg-amber-500 text-white hover:bg-amber-600'
-                            : 'bg-slate-900 text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    {loadingId === plan.id
-                      ? 'กำลังเปิดหน้าชำระเงิน…'
-                      : userPlan === null
-                        ? 'กำลังโหลด…'
-                        : getButtonLabel(userPlan, plan.id)}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={btnDisabled}
+                      onClick={() => {
+                        if (action === 'upgrade') void startCheckout(plan.id)
+                      }}
+                      className={`min-h-11 w-full rounded-xl py-3 text-sm font-semibold shadow-md transition disabled:opacity-60 ${
+                        isLoading
+                          ? 'cursor-wait bg-slate-200 text-slate-600 hover:bg-slate-200'
+                          : isDowngrade
+                            ? 'cursor-not-allowed bg-slate-500 text-white hover:bg-slate-500'
+                            : plan.recommended
+                              ? 'bg-amber-500 text-white hover:bg-amber-600'
+                              : 'bg-slate-900 text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      {loadingId === plan.id
+                        ? 'กำลังเปิดหน้าชำระเงิน…'
+                        : userPlan === null
+                          ? 'กำลังโหลด…'
+                          : getButtonLabel(userPlan, plan.id)}
+                    </button>
+                    {showCancelSubscription ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={cancelLoading}
+                          onClick={() => void cancelSubscription()}
+                          className="mt-2 w-full rounded-xl bg-red-500 px-4 py-2 text-white transition hover:bg-red-600 disabled:opacity-60"
+                        >
+                          {cancelLoading ? 'กำลังดำเนินการ…' : 'ยกเลิกใช้บริการ'}
+                        </button>
+                        <p className="mt-1 text-center text-xs text-gray-500">
+                          คุณยังสามารถใช้งานได้จนสิ้นสุดรอบบิล
+                        </p>
+                      </>
+                    ) : null}
+                  </>
                 )
               })()
             )}
