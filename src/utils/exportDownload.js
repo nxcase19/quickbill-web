@@ -29,17 +29,22 @@ export function downloadBlobFromApiResponse(res) {
   const blob = new Blob([res.data], { type: XLSX_MIME })
 
   const disposition =
-    res.headers?.['content-disposition'] ||
+    res.headers?.['content-disposition'] ??
     res.headers?.get?.('content-disposition')
 
-  const filenameFromBackend = disposition
-    ? filenameFromContentDisposition(disposition)
-    : null
+  let filename = 'export.xlsx'
+
+  if (disposition && disposition.includes('filename=')) {
+    const rest = disposition.split('filename=')[1]
+    if (rest) {
+      filename = rest.replace(/"/g, '').split(';')[0].trim() || filename
+    }
+  }
 
   const objectUrl = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = objectUrl
-  link.download = filenameFromBackend || 'export.xlsx'
+  link.download = filename
 
   document.body.appendChild(link)
   link.click()
