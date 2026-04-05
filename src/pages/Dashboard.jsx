@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../services/api.js'
+import { buildReportQueryParams } from '../services/reportService.js'
+import { useReportData } from '../hooks/useReportData.js'
 import { useBilling } from '../context/BillingContext.jsx'
 import { downloadBlobFromApiResponse } from '../utils/exportDownload.js'
 import { FREE_DOCS_PER_DAY, FREE_DOCS_PER_MONTH } from '../utils/planClient.js'
@@ -21,6 +23,18 @@ function formatAmount(v) {
   })
 }
 
+function formatReportTimestamp(ts) {
+  if (ts == null) return '—'
+  try {
+    return new Date(ts).toLocaleString('th-TH', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    })
+  } catch {
+    return '—'
+  }
+}
+
 const cardColors = {
   total: 'bg-white',
   paid: 'bg-blue-50 border-blue-200',
@@ -29,7 +43,7 @@ const cardColors = {
   taxPurchase: 'bg-green-50 border-green-200',
 }
 
-function Card({ title, value, tone = 'total' }) {
+function Card({ title, value, tone = 'total', reportLoading, reportError }) {
   const borderTone =
     tone === 'total' ? 'border-slate-200' : ''
   return (
@@ -37,21 +51,17 @@ function Card({ title, value, tone = 'total' }) {
       className={`rounded-xl border p-5 shadow-sm ${borderTone} ${cardColors[tone] ?? cardColors.total}`}
     >
       <p className="text-sm text-slate-600">{title}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">
-        {formatAmount(value)}
-      </p>
+      {reportLoading ? (
+        <p className="mt-2 text-lg text-slate-500">กำลังโหลด...</p>
+      ) : reportError ? (
+        <p className="mt-2 text-2xl font-semibold text-slate-400">--</p>
+      ) : (
+        <p className="mt-2 text-2xl font-semibold text-slate-900">
+          {formatAmount(value)}
+        </p>
+      )}
     </div>
   )
-}
-
-/** Query params เดียวกับ backend: summary / vat-summary / export ใช้ `period` + optional from/to (custom) */
-function buildReportQueryParams(period, from, to) {
-  const params = { period }
-  if (period === 'custom') {
-    if (from) params.from = from
-    if (to) params.to = to
-  }
-  return params
 }
 
 function getUsageStatus(used, limit) {
@@ -77,14 +87,25 @@ export default function Dashboard() {
   const [celebrateProCheckout, setCelebrateProCheckout] = useState(false)
   const [trialInfo, setTrialInfo] = useState(null)
   const [usage, setUsage] = useState(null)
-  const [summary, setSummary] = useState(null)
-  const [vatSummary, setVatSummary] = useState(null)
   const [exportStatusFilter, setExportStatusFilter] = useState('all')
   const [docType, setDocType] = useState('')
   const [vatFilter, setVatFilter] = useState('all')
   const [period, setPeriod] = useState('month')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+
+  const {
+    summary,
+    vatSummary,
+    error: reportError,
+    isRefreshing,
+    lastUpdatedAt,
+    refresh,
+    invalidate,
+    displayLoading,
+    showErrorBlank,
+    hasReportData,
+  } = useReportData({ period, from, to })
 
   const planReady = billingStatus === 'ready'
   const billingPlanLoading = billingStatus === 'loading' && billingPlanApi == null
@@ -185,39 +206,6 @@ export default function Dashboard() {
       openUpgrade('อัปเกรดเพื่อใช้งานฟีเจอร์นี้')
     }
   }
-
-  useEffect(() => {
-    if (period === 'custom' && (!from || !to)) {
-      setSummary(null)
-      setVatSummary(null)
-      return
-    }
-    const params = buildReportQueryParams(period, from, to)
-
-    let cancelled = false
-
-    api
-      .get('/api/reports/summary', { params })
-      .then((res) => {
-        if (!cancelled) setSummary(res.data?.summary ?? res.data ?? null)
-      })
-      .catch(() => {
-        if (!cancelled) setSummary(null)
-      })
-
-    api
-      .get('/api/reports/vat-summary', { params })
-      .then((res) => {
-        if (!cancelled) setVatSummary(res.data?.summary ?? res.data ?? null)
-      })
-      .catch(() => {
-        if (!cancelled) setVatSummary(null)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [period, from, to])
 
   const exportStatusBtn = (key) =>
     exportStatusFilter === key
@@ -489,32 +477,114 @@ export default function Dashboard() {
         ) : null}
       </section>
 
+      <div className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/90 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+          <span>
+            อัปเดตล่าสุด:{' '}
+            <span className="font-medium text-slate-800">
+              {formatReportTimestamp(lastUpdatedAt)}
+            </span>
+          </span>
+          {isRefreshing ? (
+            <span className="text-slate-500">กำลังอัปเดต...</span>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => refresh()}
+            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            โหลดใหม่
+          </button>
+          <button
+            type="button"
+            onClick={() => invalidate()}
+            className="rounded-md border border-transparent px-2.5 py-1 text-xs font-medium text-slate-500 underline decoration-slate-300 hover:text-slate-700"
+            title="ล้างแคชของช่วงเวลานี้ แล้วดึงใหม่หลัง debounce"
+          >
+            ล้างแคช
+          </button>
+          <button
+            type="button"
+            onClick={() => invalidate(true)}
+            className="rounded-md px-2 py-1 text-[11px] text-slate-400 hover:text-slate-600"
+            title="ล้างแคชทุกช่วงในเซสชันนี้"
+          >
+            ล้างทั้งหมด
+          </button>
+        </div>
+      </div>
+      {reportError && hasReportData ? (
+        <p className="text-sm text-amber-800" role="status">
+          อัปเดตข้อมูลล่าสุดไม่สำเร็จ — แสดงข้อมูลชุดก่อนหน้า ({reportError})
+        </p>
+      ) : null}
+
       <section className="flex flex-col gap-4">
         <h2 className="text-base font-semibold text-slate-800">ยอดเงิน (ภาพรวม)</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card title="ยอดทั้งหมด" value={summary?.total_amount} tone="total" />
-          <Card title="จ่ายแล้ว" value={summary?.paid_amount} tone="paid" />
-          <Card title="ค้างจ่าย" value={summary?.unpaid_amount} tone="unpaid" />
+          <Card
+            title="ยอดทั้งหมด"
+            value={summary?.total_amount}
+            tone="total"
+            reportLoading={displayLoading}
+            reportError={showErrorBlank}
+          />
+          <Card
+            title="จ่ายแล้ว"
+            value={summary?.paid_amount}
+            tone="paid"
+            reportLoading={displayLoading}
+            reportError={showErrorBlank}
+          />
+          <Card
+            title="ค้างจ่าย"
+            value={summary?.unpaid_amount}
+            tone="unpaid"
+            reportLoading={displayLoading}
+            reportError={showErrorBlank}
+          />
         </div>
       </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-base font-semibold text-slate-800">ภาษี (ภาพรวม)</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card title="ภาษีขาย" value={vatSummary?.vat_sales} tone="taxSales" />
-          <Card title="ภาษีซื้อ" value={vatSummary?.vat_purchase} tone="taxPurchase" />
+          <Card
+            title="ภาษีขาย"
+            value={vatSummary?.vat_sales}
+            tone="taxSales"
+            reportLoading={displayLoading}
+            reportError={showErrorBlank}
+          />
+          <Card
+            title="ภาษีซื้อ"
+            value={vatSummary?.vat_purchase}
+            tone="taxPurchase"
+            reportLoading={displayLoading}
+            reportError={showErrorBlank}
+          />
           <div
             className={`rounded-xl border p-5 shadow-sm ${
-              Number(vatSummary?.vat_payable ?? 0) > 0
-                ? 'border-red-200 bg-red-50 text-red-700'
-                : Number(vatSummary?.vat_payable ?? 0) < 0
-                  ? 'border-green-200 bg-green-50 text-green-700'
-                  : 'border-slate-200 bg-white text-slate-900'
+              showErrorBlank
+                ? 'border-slate-200 bg-white text-slate-900'
+                : Number(vatSummary?.vat_payable ?? 0) > 0
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : Number(vatSummary?.vat_payable ?? 0) < 0
+                    ? 'border-green-200 bg-green-50 text-green-700'
+                    : 'border-slate-200 bg-white text-slate-900'
             }`}
           >
             <p className="text-sm">ภาษีที่ต้องจ่าย</p>
             <p className="mt-2 text-2xl font-semibold">
-              {formatAmount(vatSummary?.vat_payable)}
+              {displayLoading ? (
+                <span className="text-lg font-normal text-slate-500">กำลังโหลด...</span>
+              ) : showErrorBlank ? (
+                <span className="text-slate-400">--</span>
+              ) : (
+                formatAmount(vatSummary?.vat_payable)
+              )}
             </p>
           </div>
         </div>
