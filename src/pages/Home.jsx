@@ -35,10 +35,16 @@ export default function Home() {
 
         <p className="mt-3 text-base text-gray-600">ระบบออกบิลของคนไทย</p>
 
-        <ul className="mx-auto mt-6 flex w-full max-w-md flex-col gap-2.5 text-left text-[15px] leading-snug text-[#374151] sm:text-center">
+        <ul className="mx-auto mt-6 flex w-full max-w-[min(100%,320px)] list-none flex-col gap-2.5 p-0 text-center text-[15px] leading-snug text-[#374151] sm:max-w-[320px]">
           {features.map((line) => (
-            <li key={line} className="flex items-start gap-2 sm:justify-center">
-              <span className="mt-0.5 shrink-0" aria-hidden>
+            <li
+              key={line}
+              className="flex items-center justify-center gap-2 text-center"
+            >
+              <span
+                className="inline-flex size-4 shrink-0 items-center justify-center text-[16px] leading-none text-[#16a34a]"
+                aria-hidden
+              >
                 ✔
               </span>
               <span className="min-w-0 text-pretty">{line}</span>
@@ -46,25 +52,27 @@ export default function Home() {
           ))}
         </ul>
 
-        <button
-          type="button"
-          onClick={() => navigate('/login')}
-          className="mt-6 w-full max-w-xs rounded-xl bg-orange-500 px-8 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-orange-600 sm:w-auto"
-        >
-          เริ่มใช้งานฟรี 🚀
-        </button>
+        <div className="mt-5 flex w-full flex-col items-center text-center">
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="w-full max-w-xs rounded-xl bg-orange-500 px-8 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-orange-600 sm:w-auto"
+          >
+            เริ่มใช้งานฟรี 🚀
+          </button>
 
-        <button
-          type="button"
-          onClick={() => navigate('/login')}
-          className="mt-3 text-sm text-gray-500 underline decoration-gray-400 underline-offset-2 transition hover:text-gray-700"
-        >
-          เข้าสู่ระบบ
-        </button>
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="mt-3 block w-full text-center text-sm text-gray-500 underline decoration-gray-400 underline-offset-2 transition hover:text-gray-700"
+          >
+            เข้าสู่ระบบ
+          </button>
 
-        <p className="mt-2 text-xs text-[#6B7280]">
-          ทดลองใช้งานฟรี 7 วัน
-        </p>
+          <p className="mt-1.5 text-xs text-[#6B7280]">
+            ทดลองใช้งานฟรี 7 วัน
+          </p>
+        </div>
       </div>
     </div>
   )
