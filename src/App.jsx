@@ -19,6 +19,7 @@ import PP30 from './pages/PP30.jsx'
 import Suppliers from './pages/Suppliers.jsx'
 import Pricing from './pages/Pricing.jsx'
 import BillingSuccess from './pages/BillingSuccess.jsx'
+import FeedbackFab from './components/FeedbackFab.jsx'
 
 function ProtectedRoute({ children }) {
   const token = getStoredToken()
@@ -154,6 +155,7 @@ export default function App() {
             />
           </Routes>
         </main>
+        <FeedbackFab />
       </div>
       </BillingProvider>
     </BrowserRouter>
