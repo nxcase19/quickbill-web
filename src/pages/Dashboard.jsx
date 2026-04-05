@@ -44,32 +44,14 @@ function Card({ title, value, tone = 'total' }) {
   )
 }
 
-/** ช่วงวันที่สำหรับ export ภาษี — อิง state ช่วงเวลาของ Dashboard (ไม่ hardcode วันคงที่) */
-function getVatExportDateRange(period, from, to) {
-  if (period === 'custom' && from && to) {
-    return { from: String(from).slice(0, 10), to: String(to).slice(0, 10) }
+/** Query params เดียวกับ backend: summary / vat-summary / export ใช้ `period` + optional from/to (custom) */
+function buildReportQueryParams(period, from, to) {
+  const params = { period }
+  if (period === 'custom') {
+    if (from) params.from = from
+    if (to) params.to = to
   }
-
-  const now = new Date()
-  const y = now.getFullYear()
-  const monthIndex = now.getMonth()
-
-  if (period === 'day') {
-    const mm = String(monthIndex + 1).padStart(2, '0')
-    const dd = String(now.getDate()).padStart(2, '0')
-    const dayStr = `${y}-${mm}-${dd}`
-    return { from: dayStr, to: dayStr }
-  }
-
-  if (period === 'year') {
-    return { from: `${y}-01-01`, to: `${y}-12-31` }
-  }
-
-  const mm = String(monthIndex + 1).padStart(2, '0')
-  const first = `${y}-${mm}-01`
-  const lastDay = new Date(y, monthIndex + 1, 0).getDate()
-  const last = `${y}-${mm}-${String(lastDay).padStart(2, '0')}`
-  return { from: first, to: last }
+  return params
 }
 
 function getUsageStatus(used, limit) {
@@ -177,11 +159,12 @@ export default function Dashboard() {
       openUpgrade('อัปเกรดเพื่อใช้งานฟีเจอร์นี้')
       return
     }
+    if (period === 'custom' && (!from || !to)) {
+      return
+    }
     const params = {
       doc_type: docType,
-      period,
-      from,
-      to,
+      ...buildReportQueryParams(period, from, to),
     }
     if (exportStatusFilter !== 'all') {
       params.status = exportStatusFilter
@@ -189,10 +172,6 @@ export default function Dashboard() {
     if (!params.doc_type) delete params.doc_type
     if (vatFilter !== 'all') {
       params.vat = vatFilter
-    }
-    if (period !== 'custom') {
-      delete params.from
-      delete params.to
     }
 
     try {
@@ -208,25 +187,37 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    const params = { period }
-    if (period === 'custom') {
-      if (!from || !to) return
-      params.from = from
-      params.to = to
+    if (period === 'custom' && (!from || !to)) {
+      setSummary(null)
+      setVatSummary(null)
+      return
     }
+    const params = buildReportQueryParams(period, from, to)
+
+    let cancelled = false
 
     api
       .get('/api/reports/summary', { params })
-      .then((res) => setSummary(res.data?.summary ?? res.data ?? null))
-      .catch(() => setSummary(null))
-  }, [period, from, to])
+      .then((res) => {
+        if (!cancelled) setSummary(res.data?.summary ?? res.data ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null)
+      })
 
-  useEffect(() => {
     api
-      .get('/api/reports/vat-summary')
-      .then((res) => setVatSummary(res.data?.summary ?? res.data ?? null))
-      .catch(() => setVatSummary(null))
-  }, [])
+      .get('/api/reports/vat-summary', { params })
+      .then((res) => {
+        if (!cancelled) setVatSummary(res.data?.summary ?? res.data ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setVatSummary(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [period, from, to])
 
   const exportStatusBtn = (key) =>
     exportStatusFilter === key
@@ -534,7 +525,7 @@ export default function Dashboard() {
           <div>
             <h2 className="text-base font-semibold text-slate-800">เลือกข้อมูลสำหรับ Export</h2>
             <p className="mt-1 text-sm text-slate-600">
-              ตัวเลือกในส่วนนี้มีผลเฉพาะไฟล์ Export (Excel / ภาษี) — ไม่เปลี่ยนตัวเลขสรุปด้านบน
+              ช่วงเวลาเดียวกับยอดและภาษีด้านบน — ตัวกรองประเภทเอกสาร/สถานะ/VAT ด้านล่างมีผลเฉพาะ Export เอกสารขาย
             </p>
           </div>
 
@@ -547,9 +538,9 @@ export default function Dashboard() {
                   return
                 }
                 try {
-                  const { from: vf, to: vt } = getVatExportDateRange(period, from, to)
+                  if (period === 'custom' && (!from || !to)) return
                   const res = await api.get('/api/reports/vat-sales/export', {
-                    params: { from: vf, to: vt },
+                    params: buildReportQueryParams(period, from, to),
                     responseType: 'blob',
                   })
                   downloadBlobFromApiResponse(res)
@@ -580,9 +571,9 @@ export default function Dashboard() {
                   return
                 }
                 try {
-                  const { from: vf, to: vt } = getVatExportDateRange(period, from, to)
+                  if (period === 'custom' && (!from || !to)) return
                   const res = await api.get('/api/reports/vat-purchase/export', {
-                    params: { from: vf, to: vt },
+                    params: buildReportQueryParams(period, from, to),
                     responseType: 'blob',
                   })
                   downloadBlobFromApiResponse(res)
