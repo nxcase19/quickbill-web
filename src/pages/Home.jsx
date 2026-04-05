@@ -15,6 +15,13 @@ export default function Home() {
     setUsers(BASE + hours * 3)
   }, [])
 
+  const features = [
+    'สรุปรายรับ–รายจ่ายทันที',
+    'คำนวณภาษีให้อัตโนมัติ',
+    'ใช้งานง่าย ไม่ต้องมีพื้นฐานบัญชี',
+    'ใช้ได้ทั้งมือถือและคอม',
+  ]
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-10 text-center">
       <div className="mx-auto w-full max-w-lg">
@@ -28,16 +35,21 @@ export default function Home() {
 
         <p className="mt-3 text-base text-gray-600">ระบบออกบิลของคนไทย</p>
 
-        <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm text-gray-500">
-          <span>🇹🇭 รองรับ VAT 7%</span>
-          <span>📄 ออกเอกสารครบ (INV / QT / RC)</span>
-          <span>🔒 ข้อมูลปลอดภัย</span>
-        </div>
+        <ul className="mx-auto mt-6 flex w-full max-w-md flex-col gap-2.5 text-left text-[15px] leading-snug text-[#374151] sm:text-center">
+          {features.map((line) => (
+            <li key={line} className="flex items-start gap-2 sm:justify-center">
+              <span className="mt-0.5 shrink-0" aria-hidden>
+                ✔
+              </span>
+              <span className="min-w-0 text-pretty">{line}</span>
+            </li>
+          ))}
+        </ul>
 
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="mt-8 w-full max-w-xs rounded-xl bg-orange-500 px-8 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-orange-600 sm:w-auto"
+          className="mt-6 w-full max-w-xs rounded-xl bg-orange-500 px-8 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-orange-600 sm:w-auto"
         >
           เริ่มใช้งานฟรี 🚀
         </button>
@@ -50,8 +62,8 @@ export default function Home() {
           เข้าสู่ระบบ
         </button>
 
-        <p className="mt-2 text-xs text-gray-400">
-          ทดลองใช้งานฟรี 7 วัน • ไม่ต้องใช้บัตรเครดิต
+        <p className="mt-2 text-xs text-[#6B7280]">
+          ทดลองใช้งานฟรี 7 วัน
         </p>
       </div>
     </div>
