@@ -1,17 +1,133 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '../services/api.js'
+import { isCancelled, isPaid, isUnpaid } from '../utils/payment.js'
 
-const groupByOrder = (docs) => {
-  const map = {}
+const DOC_ORDER = ['QT', 'DN', 'INV', 'RC']
 
-  for (const doc of docs) {
-    if (!map[doc.order_id]) {
-      map[doc.order_id] = []
-    }
-    map[doc.order_id].push(doc)
+function getDocType(doc) {
+  return String(doc.doc_type || doc.type || doc.document_type || '').trim()
+}
+
+function docTypeOrderIndex(doc) {
+  const u = getDocType(doc).toUpperCase()
+  const i = DOC_ORDER.indexOf(u)
+  return i === -1 ? DOC_ORDER.length + 1 : i
+}
+
+function sortDocuments(group) {
+  return [...group].sort((a, b) => docTypeOrderIndex(a) - docTypeOrderIndex(b))
+}
+
+function getDocColor(doc, rc) {
+  const type = getDocType(doc).toUpperCase()
+
+  if (type === 'QT') return 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+  if (type === 'DN') return 'bg-pink-100 text-pink-700 hover:bg-pink-200'
+  if (type === 'INV') return 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+
+  if (type === 'RC') {
+    if (!rc) return 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+
+    const rcPaid =
+      Number(rc.paid_amount || 0) >= Number(rc.total_amount || rc.total || 0)
+
+    return rcPaid
+      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+      : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
   }
 
+  return 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+}
+
+/** First non-empty value (order fields may be UUID string, number, or empty string). */
+function firstOrderField(...vals) {
+  for (const v of vals) {
+    if (v != null && String(v).trim() !== '') return String(v).trim()
+  }
+  return null
+}
+
+/**
+ * Document number without type prefix, e.g. RC-202604-0194 → 202604-0194
+ * Uses doc_no / document_number from API.
+ */
+function extractOrderKeyFromDocNumber(num) {
+  if (num == null || String(num).trim() === '') return null
+  const parts = String(num).trim().split('-')
+  if (parts.length < 2) return null
+  return parts.slice(1).join('-')
+}
+
+/**
+ * One key per sales order: prefer explicit order links, then shared doc-no suffix.
+ * Fallback isolates documents that cannot be grouped.
+ */
+function getGroupKey(doc) {
+  const fromOrder = firstOrderField(
+    doc.order_id,
+    doc.reference_id,
+    doc.group_id,
+    doc.root_id,
+    doc.parent_id,
+  )
+  if (fromOrder) return fromOrder
+
+  const docNum = doc.document_number ?? doc.doc_no ?? doc.doc_number
+  const fromNum = extractOrderKeyFromDocNumber(docNum)
+  if (fromNum) return fromNum
+
+  return `id:${doc.id}`
+}
+
+function groupDocuments(documents) {
+  const map = {}
+
+  documents.forEach((doc) => {
+    const key = getGroupKey(doc)
+    if (!map[key]) {
+      map[key] = []
+    }
+    map[key].push(doc)
+  })
+
   return Object.values(map)
+}
+
+function getRC(group) {
+  return group.find(
+    (doc) =>
+      doc.doc_type === 'RC' ||
+      doc.type === 'RC' ||
+      doc.document_type === 'RC',
+  )
+}
+
+function buildOrderRows(grouped) {
+  return grouped.map((group) => {
+    const rc = getRC(group)
+    const total = rc ? Number(rc.total_amount ?? rc.total ?? 0) : 0
+    const paid = rc ? Number(rc.paid_amount ?? 0) : 0
+    const outstanding = Math.max(0, total - paid)
+    return {
+      group,
+      rc,
+      total,
+      paid,
+      outstanding,
+    }
+  })
+}
+
+function getOrderStatus(row) {
+  const doc = row.rc || row.group[0]
+
+  if (isCancelled(doc)) return 'cancelled'
+
+  if (row.rc && isPaid(row.rc)) return 'paid'
+
+  if (row.rc && isUnpaid(row.rc)) return 'unpaid'
+
+  return 'no_rc'
 }
 
 export default function History() {
@@ -23,22 +139,45 @@ export default function History() {
     orderId: null,
     amount: 0,
   })
-  const [groupedDocs, setGroupedDocs] = useState([])
+  const [allDocuments, setAllDocuments] = useState([])
   const [loading, setLoading] = useState(true)
 
   const fetchDocuments = useCallback(async () => {
     const params = {}
-    if (filter === 'outstanding') params.status = 'outstanding'
-    if (filter === 'paid') params.status = 'paid'
     if (q.trim()) params.q = q.trim()
     try {
       const { data } = await api.get('/api/documents', { params })
-      const rows = Array.isArray(data) ? data : data?.documents || []
-      setGroupedDocs(groupByOrder(rows))
+      const documents = Array.isArray(data) ? data : data?.documents || []
+      setAllDocuments(documents)
     } catch {
-      setGroupedDocs([])
+      setAllDocuments([])
     }
-  }, [filter, q])
+  }, [q])
+
+  const groupedDocuments = useMemo(
+    () => groupDocuments(allDocuments),
+    [allDocuments],
+  )
+
+  const orderRows = useMemo(
+    () => buildOrderRows(groupedDocuments),
+    [groupedDocuments],
+  )
+
+  const visibleRows = useMemo(() => {
+    return (() => {
+      if (filter === 'all') {
+        return orderRows.filter((r) => !isCancelled(r.rc || r.group[0]))
+      }
+      if (filter === 'paid') {
+        return orderRows.filter((r) => r.rc && isPaid(r.rc))
+      }
+      if (filter === 'outstanding') {
+        return orderRows.filter((r) => r.rc && isUnpaid(r.rc))
+      }
+      return orderRows
+    })()
+  }, [orderRows, filter])
 
   useEffect(() => {
     const t = setTimeout(() => setQ(qInput), 350)
@@ -58,12 +197,12 @@ export default function History() {
     return () => {
       cancelled = true
     }
-  }, [filter, q, fetchDocuments])
+  }, [q, fetchDocuments])
 
-  const openPaymentModal = (group) => {
+  const openPaymentModal = (r) => {
+    const { group, rc, total } = r
     if (isOrderCancelled(group)) return
-    const invoiceDoc = group.find((d) => d.doc_type === 'INV')
-    const total = invoiceDoc ? Number(invoiceDoc.total || 0) : 0
+    if (!rc || !isUnpaid(rc)) return
 
     setPaymentModal({
       open: true,
@@ -73,8 +212,8 @@ export default function History() {
   }
 
   const handleOpenPayment = (orderId) => {
-    const docs = groupedDocs.find((g) => g[0]?.order_id === orderId)
-    if (docs) openPaymentModal(docs)
+    const row = visibleRows.find((r) => r.group[0]?.order_id === orderId)
+    if (row) openPaymentModal(row)
   }
 
   const isOrderCancelled = (group) =>
@@ -85,18 +224,6 @@ export default function History() {
 
   const isOrderLocked = (group) =>
     Array.isArray(group) && group.some((d) => d.is_locked === true)
-
-  const orderTotal = (group) => {
-    const invoiceDoc = group.find((d) => d.doc_type === 'INV')
-    return invoiceDoc ? Number(invoiceDoc.total || 0) : 0
-  }
-
-  const orderStatusLabel = (orderCancelled, orderLocked, isOrderPaid) => {
-    if (orderCancelled) return 'ยกเลิก'
-    if (orderLocked) return 'ล็อก'
-    if (isOrderPaid) return 'ชำระแล้ว'
-    return 'ค้างชำระ'
-  }
 
   const cancelOrder = async (orderId) => {
     if (
@@ -124,6 +251,11 @@ export default function History() {
     const id = doc.id
     const url = `${API_URL}/api/documents/${id}/pdf?token=${token}`
     window.open(url, '_blank')
+  }
+
+  const rowReactKey = (r) => {
+    const first = r.group[0]
+    return String(first?.group_id ?? first?.order_id ?? first?.id ?? '')
   }
 
   return (
@@ -175,9 +307,13 @@ export default function History() {
         autoComplete="off"
       />
 
+      <p className="text-sm text-slate-500">
+        ยอดเงินแสดงตามใบเสร็จ (RC) เท่านั้น — แสดงเอกสารทุกใบในออเดอร์
+      </p>
+
       {loading ? (
         <p className="py-8 text-center text-slate-500">กำลังโหลด…</p>
-      ) : groupedDocs.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <p className="py-8 text-center text-slate-500">ไม่มีรายการ</p>
       ) : (
         <>
@@ -188,57 +324,64 @@ export default function History() {
                   <th className="px-3 py-2">เลขที่ / ออเดอร์</th>
                   <th className="px-3 py-2">ลูกค้า</th>
                   <th className="px-3 py-2">สถานะ</th>
-                  <th className="px-3 py-2 text-right">ยอดรวม</th>
+                  <th className="px-3 py-2 text-right">ยอดรวม (RC)</th>
                   <th className="min-w-[200px] px-3 py-2">การดำเนินการ</th>
                 </tr>
               </thead>
               <tbody>
-                {groupedDocs.map((group) => {
-                  const docs = group
+                {visibleRows.map((r) => {
+                  const { group, rc, total, outstanding } = r
                   const first = group[0]
                   const orderId = first?.order_id
-                  const isOrderPaid = docs.every(
-                    (doc) => Number(doc.paid_amount) >= Number(doc.total),
-                  )
-                  const orderCancelled = isOrderCancelled(docs)
-                  const orderLocked = isOrderLocked(docs)
-                  const total = orderTotal(docs)
-                  const statusText = orderStatusLabel(orderCancelled, orderLocked, isOrderPaid)
+                  const orderCancelled = isOrderCancelled(group)
+                  const orderLocked = isOrderLocked(group)
+                  const orderStatus = getOrderStatus(r)
                   const docNo = first.doc_no != null ? String(first.doc_no) : '—'
+                  const showReceivePayment =
+                    rc && isUnpaid(rc) && !orderCancelled && !orderLocked
 
                   return (
-                    <tr key={first.order_id} className="border-t border-slate-100">
+                    <tr key={rowReactKey(r)} className="border-t border-slate-100">
                       <td className="px-3 py-2 font-mono font-medium">{docNo}</td>
                       <td className="max-w-[12rem] truncate px-3 py-2 text-slate-800">
                         {first.customer_name}
                       </td>
                       <td className="px-3 py-2">
-                        <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800">
-                          {statusText}
-                        </span>
+                        {orderStatus === 'paid' && (
+                          <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                            ชำระแล้ว
+                          </span>
+                        )}
+                        {orderStatus === 'unpaid' && (
+                          <span className="rounded bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">
+                            ค้างชำระ
+                          </span>
+                        )}
+                        {orderStatus === 'cancelled' && (
+                          <span className="rounded bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
+                            ยกเลิก
+                          </span>
+                        )}
                       </td>
-                      <td className="px-3 py-2 text-right font-medium">{total.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right font-medium">
+                        {total.toFixed(2)}
+                      </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
-                          {group.map((doc) => (
-                            <button
-                              key={doc.id}
-                              type="button"
-                              onClick={() => handleOpenPdf(doc)}
-                              className={`rounded px-2 py-1 text-xs font-medium ${
-                                isOrderPaid
-                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                  : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                              }`}
-                            >
-                              PDF {doc.doc_type}
-                            </button>
-                          ))}
-                          {isOrderPaid ? (
-                            <span className="rounded bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                              ชำระแล้ว
-                            </span>
-                          ) : orderCancelled || orderLocked ? null : (
+                          {sortDocuments(group).map((doc) => {
+                            const type = getDocType(doc).toUpperCase() || '—'
+                            return (
+                              <button
+                                key={doc.id}
+                                type="button"
+                                onClick={() => handleOpenPdf(doc)}
+                                className={`rounded px-2 py-1 text-xs font-medium transition ${getDocColor(doc, rc)}`}
+                              >
+                                {type}
+                              </button>
+                            )
+                          })}
+                          {showReceivePayment ? (
                             <button
                               type="button"
                               onClick={() => handleOpenPayment(orderId)}
@@ -246,10 +389,11 @@ export default function History() {
                             >
                               รับเงิน
                             </button>
-                          )}
+                          ) : null}
                           {!orderCancelled &&
                           !orderLocked &&
-                          !isOrderPaid &&
+                          rc &&
+                          isUnpaid(rc) &&
                           orderId != null &&
                           String(orderId).trim() !== '' ? (
                             <button
@@ -270,20 +414,18 @@ export default function History() {
           </div>
 
           <div className="flex flex-col gap-4 md:hidden">
-            {groupedDocs.map((group) => {
-              const docs = group
+            {visibleRows.map((r) => {
+              const { group, rc, total, outstanding } = r
               const first = group[0]
               const orderId = first?.order_id
-              const isOrderPaid = docs.every(
-                (doc) => Number(doc.paid_amount) >= Number(doc.total),
-              )
-              const orderCancelled = isOrderCancelled(docs)
-              const orderLocked = isOrderLocked(docs)
-              const total = orderTotal(docs)
-              const statusText = orderStatusLabel(orderCancelled, orderLocked, isOrderPaid)
+              const orderCancelled = isOrderCancelled(group)
+              const orderLocked = isOrderLocked(group)
+              const orderStatus = getOrderStatus(r)
+              const showReceivePayment =
+                rc && isUnpaid(rc) && !orderCancelled && !orderLocked
 
               return (
-                <div key={first.order_id} className="card">
+                <div key={rowReactKey(r)} className="card">
                   <div className="flex flex-col gap-2 border-b border-slate-100 pb-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
@@ -294,53 +436,51 @@ export default function History() {
                           {first.doc_no != null ? String(first.doc_no) : '—'}
                         </p>
                       </div>
-                      <span className="inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800">
-                        {statusText}
-                      </span>
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {orderStatus === 'paid' && (
+                          <span className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                            ชำระแล้ว
+                          </span>
+                        )}
+                        {orderStatus === 'unpaid' && (
+                          <span className="rounded bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">
+                            ค้างชำระ
+                          </span>
+                        )}
+                        {orderStatus === 'cancelled' && (
+                          <span className="rounded bg-gray-200 px-2 py-1 text-xs font-medium text-gray-600">
+                            ยกเลิก
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-sm text-slate-600">ลูกค้า: {first.customer_name}</p>
                     <div className="flex items-center justify-between gap-2 pt-1">
-                      <span className="text-sm text-slate-600">ยอดรวม</span>
-                      <span className="text-xl font-semibold text-slate-900">{total.toFixed(2)}</span>
+                      <span className="text-sm text-slate-600">ยอดรวม (RC)</span>
+                      <span className="text-xl font-semibold text-slate-900">
+                        {total.toFixed(2)}
+                      </span>
                     </div>
-                    {orderCancelled ? (
-                      <div className="inline-block w-fit rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
-                        ยกเลิกแล้ว
-                      </div>
-                    ) : orderLocked ? (
-                      <div className="inline-block w-fit rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
-                        ล็อกแล้ว
-                      </div>
-                    ) : null}
                   </div>
 
-                  <div className="mt-3 space-y-2">
-                    {group.map((doc) => (
-                      <div key={doc.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="min-w-0 text-sm text-slate-700">
-                          {doc.doc_type} — {doc.doc_no}
-                        </span>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {sortDocuments(group).map((doc) => {
+                      const type = getDocType(doc).toUpperCase() || '—'
+                      return (
                         <button
+                          key={doc.id}
                           type="button"
                           onClick={() => handleOpenPdf(doc)}
-                          className={`min-h-11 w-full shrink-0 rounded-lg px-3 py-2 text-center text-sm font-medium sm:w-auto ${
-                            isOrderPaid
-                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                              : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                          }`}
+                          className={`min-h-11 rounded-lg px-4 py-2 text-center text-sm font-medium transition sm:min-h-0 ${getDocColor(doc, rc)}`}
                         >
-                          PDF
+                          {type}
                         </button>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
 
                   <div className="mt-4 flex flex-col gap-2">
-                    {isOrderPaid ? (
-                      <div className="min-h-11 rounded-lg bg-green-100 py-3 text-center text-base font-semibold text-green-700">
-                        ชำระแล้ว
-                      </div>
-                    ) : orderCancelled || orderLocked ? null : (
+                    {showReceivePayment ? (
                       <button
                         type="button"
                         onClick={() => handleOpenPayment(orderId)}
@@ -348,8 +488,13 @@ export default function History() {
                       >
                         รับเงิน
                       </button>
-                    )}
-                    {!orderCancelled && !orderLocked && !isOrderPaid && orderId != null && String(orderId).trim() !== '' ? (
+                    ) : null}
+                    {!orderCancelled &&
+                    !orderLocked &&
+                    rc &&
+                    isUnpaid(rc) &&
+                    orderId != null &&
+                    String(orderId).trim() !== '' ? (
                       <button
                         type="button"
                         onClick={() => cancelOrder(orderId)}

@@ -19,6 +19,13 @@ export default function AppHome() {
         </button>
         <button
           type="button"
+          onClick={() => navigate('/invoices/create')}
+          className="w-full rounded-xl border border-slate-200 bg-white px-6 py-4 text-lg font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
+        >
+          ใบแจ้งหนี้ (Sales) + หัก ณ ที่จ่าย
+        </button>
+        <button
+          type="button"
           onClick={() => navigate('/products')}
           className="w-full rounded-xl border border-slate-200 bg-white px-6 py-4 text-lg font-medium text-slate-800 shadow-sm transition hover:bg-slate-50"
         >

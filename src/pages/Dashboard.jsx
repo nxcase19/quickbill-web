@@ -48,15 +48,15 @@ function Card({ title, value, tone = 'total', reportLoading, reportError }) {
     tone === 'total' ? 'border-slate-200' : ''
   return (
     <div
-      className={`rounded-xl border p-5 shadow-sm ${borderTone} ${cardColors[tone] ?? cardColors.total}`}
+      className={`rounded-xl border p-3 shadow-sm sm:p-4 md:p-5 ${borderTone} ${cardColors[tone] ?? cardColors.total}`}
     >
-      <p className="text-sm text-slate-600">{title}</p>
+      <p className="text-xs text-slate-600 sm:text-sm">{title}</p>
       {reportLoading ? (
-        <p className="mt-2 text-lg text-slate-500">กำลังโหลด...</p>
+        <p className="mt-1 text-base text-slate-500 sm:mt-2 sm:text-lg">กำลังโหลด...</p>
       ) : reportError ? (
-        <p className="mt-2 text-2xl font-semibold text-slate-400">--</p>
+        <p className="mt-1 text-xl font-semibold text-slate-400 sm:mt-2 sm:text-2xl">--</p>
       ) : (
-        <p className="mt-2 text-2xl font-semibold text-slate-900">
+        <p className="mt-1 text-xl font-semibold text-slate-900 sm:mt-2 sm:text-2xl md:text-[1.75rem]">
           {formatAmount(value)}
         </p>
       )}
@@ -101,7 +101,6 @@ export default function Dashboard() {
     isRefreshing,
     lastUpdatedAt,
     refresh,
-    invalidate,
     displayLoading,
     showErrorBlank,
     hasReportData,
@@ -233,7 +232,7 @@ export default function Dashboard() {
     trialDaysLeft <= 3
 
   return (
-    <div className="flex min-h-svh flex-col gap-8 py-8 md:py-10">
+    <div className="flex min-h-svh flex-col gap-4 py-4 pb-28 md:gap-8 md:py-10 md:pb-10">
       {billingPlanLoading ? (
         <div
           className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
@@ -441,89 +440,8 @@ export default function Dashboard() {
         </section>
       ) : null}
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-base font-semibold text-slate-800">สรุปยอดตามช่วงเวลา</h2>
-        <p className="text-sm text-slate-500">
-          ตัวเลขด้านล่างเป็นยอดรวมทั้งหมดในช่วงที่เลือก ไม่เกี่ยวกับตัวกรอง Export
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-slate-600">ช่วงเวลา</span>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="month">เดือนนี้</option>
-            <option value="day">วันนี้</option>
-            <option value="year">ปีนี้</option>
-            <option value="custom">กำหนดเอง</option>
-          </select>
-        </div>
-        {period === 'custom' ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2"
-            />
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2"
-            />
-          </div>
-        ) : null}
-      </section>
-
-      <div className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/90 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
-          <span>
-            อัปเดตล่าสุด:{' '}
-            <span className="font-medium text-slate-800">
-              {formatReportTimestamp(lastUpdatedAt)}
-            </span>
-          </span>
-          {isRefreshing ? (
-            <span className="text-slate-500">กำลังอัปเดต...</span>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => refresh()}
-            className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          >
-            โหลดใหม่
-          </button>
-          <button
-            type="button"
-            onClick={() => invalidate()}
-            className="rounded-md border border-transparent px-2.5 py-1 text-xs font-medium text-slate-500 underline decoration-slate-300 hover:text-slate-700"
-            title="ล้างแคชของช่วงเวลานี้ แล้วดึงใหม่หลัง debounce"
-          >
-            ล้างแคช
-          </button>
-          <button
-            type="button"
-            onClick={() => invalidate(true)}
-            className="rounded-md px-2 py-1 text-[11px] text-slate-400 hover:text-slate-600"
-            title="ล้างแคชทุกช่วงในเซสชันนี้"
-          >
-            ล้างทั้งหมด
-          </button>
-        </div>
-      </div>
-      {reportError && hasReportData ? (
-        <p className="text-sm text-amber-800" role="status">
-          อัปเดตข้อมูลล่าสุดไม่สำเร็จ — แสดงข้อมูลชุดก่อนหน้า ({reportError})
-        </p>
-      ) : null}
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-base font-semibold text-slate-800">ยอดเงิน (ภาพรวม)</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="flex flex-col gap-2 md:gap-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 md:gap-4">
           <Card
             title="ยอดทั้งหมด"
             value={summary?.total_amount}
@@ -547,6 +465,80 @@ export default function Dashboard() {
           />
         </div>
       </section>
+
+      <section className="flex flex-col gap-2 md:gap-3">
+        <p className="text-xs font-medium text-slate-600 md:text-sm">สรุปตามช่วงเวลา</p>
+        <div className="flex items-center gap-2">
+          <label htmlFor="dashboard-period" className="sr-only">
+            ช่วงเวลา
+          </label>
+          <select
+            id="dashboard-period"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm md:max-w-xs"
+          >
+            <option value="month">เดือนนี้</option>
+            <option value="day">วันนี้</option>
+            <option value="year">ปีนี้</option>
+            <option value="custom">กำหนดเอง</option>
+          </select>
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5">
+            <span
+              className="max-w-[5.5rem] truncate text-[10px] leading-tight text-slate-500 sm:max-w-[10rem] md:max-w-none md:text-xs"
+              title={formatReportTimestamp(lastUpdatedAt)}
+            >
+              {isRefreshing ? 'กำลังอัปเดต…' : formatReportTimestamp(lastUpdatedAt)}
+            </span>
+            <button
+              type="button"
+              onClick={() => refresh()}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              title="โหลดใหม่"
+              aria-label="โหลดใหม่"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+                aria-hidden
+              >
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                <path d="M16 16h5v5" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        {period === 'custom' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="min-h-10 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm sm:flex-none"
+            />
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="min-h-10 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-sm sm:flex-none"
+            />
+          </div>
+        ) : null}
+      </section>
+
+      {reportError && hasReportData ? (
+        <p className="text-xs text-amber-800 md:text-sm" role="status">
+          อัปเดตข้อมูลล่าสุดไม่สำเร็จ — แสดงข้อมูลชุดก่อนหน้า ({reportError})
+        </p>
+      ) : null}
 
       <section className="flex flex-col gap-4">
         <h2 className="text-base font-semibold text-slate-800">ภาษี (ภาพรวม)</h2>

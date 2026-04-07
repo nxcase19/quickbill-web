@@ -19,6 +19,7 @@ import PP30 from './pages/PP30.jsx'
 import Suppliers from './pages/Suppliers.jsx'
 import Pricing from './pages/Pricing.jsx'
 import BillingSuccess from './pages/BillingSuccess.jsx'
+import InvoiceCreate from './pages/InvoiceCreate.jsx'
 import FeedbackFab from './components/FeedbackFab.jsx'
 
 function ProtectedRoute({ children }) {
@@ -70,6 +71,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <CreateDocument />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/invoices/create"
+              element={
+                <ProtectedRoute>
+                  <InvoiceCreate />
                 </ProtectedRoute>
               }
             />
